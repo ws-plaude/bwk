@@ -77,3 +77,7 @@ bwk-persist = { path = "persist" }
 bwk-utils = { path = "utils" }
 bwk-p2p = { path = "p2p" }
 bwk = { path = "bwk" }
+
+[patch.crates-io]
+# Pins rustls to the ring provider, upstream defaults to aws-lc which builds a C library.
+minreq = { git = "https://github.com/ws-plaude/minreq", rev = "4bb469396ce5fa9f57cb0ebfed9cd1f84f7fc937" }
