@@ -303,11 +303,14 @@ where
     D: DeserializeOwned + Unpin,
 {
     let id = std::process::id();
-    let req = serde_cbor::to_vec(&api::Request {
-        id: &id.to_string(),
-        method,
-        params,
-    })
+    let req = cbor4ii::serde::to_vec(
+        Vec::new(),
+        &api::Request {
+            id: &id.to_string(),
+            method,
+            params,
+        },
+    )
     .map_err(TransportError::from)?;
 
     transport.write_all(&req).map_err(TransportError::from)?;
@@ -335,7 +338,7 @@ fn read_stream<D: DeserializeOwned>(
         Ok(0) => {}
         Ok(n) => {
             buf.extend_from_slice(&chunk[..n]);
-            if let Ok(response) = serde_cbor::from_slice(&buf) {
+            if let Ok(response) = cbor4ii::serde::from_slice(&buf) {
                 return Ok(response);
             }
         }
@@ -351,7 +354,7 @@ fn read_stream<D: DeserializeOwned>(
             Ok(0) => break,
             Ok(n) => {
                 buf.extend_from_slice(&chunk[..n]);
-                if let Ok(response) = serde_cbor::from_slice(&buf) {
+                if let Ok(response) = cbor4ii::serde::from_slice(&buf) {
                     return Ok(response);
                 }
             }
@@ -360,7 +363,7 @@ fn read_stream<D: DeserializeOwned>(
         }
     }
 
-    match serde_cbor::from_slice(&buf) {
+    match cbor4ii::serde::from_slice(&buf) {
         Ok(response) => Ok(response),
         Err(_) => Err(TransportError::NoErrorOrResult),
     }
@@ -461,16 +464,16 @@ impl Transport for SerialTransport {
 
 #[derive(Debug)]
 pub enum TransportError {
-    Serialize(serde_cbor::Error),
+    Serialize(String),
     NoErrorOrResult,
     NonceMismatch,
     Io(std::io::Error),
     Serial(serialport::Error),
 }
 
-impl From<serde_cbor::Error> for TransportError {
-    fn from(e: serde_cbor::Error) -> Self {
-        Self::Serialize(e)
+impl From<cbor4ii::serde::EncodeError<std::collections::TryReserveError>> for TransportError {
+    fn from(e: cbor4ii::serde::EncodeError<std::collections::TryReserveError>) -> Self {
+        Self::Serialize(e.to_string())
     }
 }
 
@@ -547,5 +550,33 @@ impl From<JadeError> for HWIError {
                 HWIError::Device("Handshake with pinserver refused".to_string())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The read loop feeds a growing buffer to the decoder and relies on it failing until the
+    /// whole message has arrived, so a truncated payload must never decode.
+    #[test]
+    fn a_truncated_response_does_not_decode() {
+        let complete = cbor4ii::serde::to_vec(
+            Vec::new(),
+            &api::Request::<()> {
+                id: "1",
+                method: "get_version_info",
+                params: None,
+            },
+        )
+        .unwrap();
+
+        for len in 1..complete.len() {
+            assert!(
+                cbor4ii::serde::from_slice::<api::Request<()>>(&complete[..len]).is_err(),
+                "a {len} byte prefix decoded as a whole message"
+            );
+        }
+        assert!(cbor4ii::serde::from_slice::<api::Request<()>>(&complete).is_ok());
     }
 }

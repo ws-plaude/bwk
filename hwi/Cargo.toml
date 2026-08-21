@@ -15,7 +15,7 @@ bitbox = ["hidapi", "bitbox-api", "regex"]
 coldcard = ["dep:coldcard", "regex"]
 specter = ["serialport"]
 # The jade pin server needs an http client: pick minreq or ureq.
-jade = ["serde", "serde_bytes", "serde_cbor", "serialport"]
+jade = ["serde", "serde_bytes", "cbor4ii", "serialport"]
 minreq = ["dep:minreq"]
 ureq = ["dep:ureq"]
 ledger = ["regex", "ledger-bitcoin-client", "ledger-transport-hidapi", "hidapi"]
@@ -31,7 +31,7 @@ serialport = { version = "4.3", optional = true }
 # jade
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.14", optional = true }
-serde_cbor = { version = "0.11", optional = true }
+cbor4ii = { version = "1", default-features = false, features = ["serde1", "use_alloc"], optional = true }
 ureq = { workspace = true, features = ["json", "native-tls"], optional = true }
 # Patched at the workspace root to a build pinning rustls to ring, see the root Cargo.toml.
 minreq = { version = "3.0", default-features = false, features = ["https-rustls", "json-using-serde"], optional = true }
