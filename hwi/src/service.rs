@@ -25,7 +25,7 @@ use bitcoin::{
     psbt::Psbt,
     Network,
 };
-use crossbeam::channel;
+use crossbeam_channel as channel;
 use hidapi::{DeviceInfo, HidApi};
 use ledger_transport_hidapi::TransportNativeHID;
 use serde::{Deserialize, Serialize};
