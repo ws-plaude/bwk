@@ -211,6 +211,17 @@ impl SpecterSimulator {
 }
 
 impl Specter<SerialTransport> {
+    /// Check whether the port answers, without waiting the full command timeout. Discovery runs
+    /// this on every poll, so an unresponsive device must not stall it.
+    pub fn probe(&self) -> Result<Fingerprint, SpecterError> {
+        self.transport.set_timeout(SerialTransport::PROBE_TIMEOUT)?;
+        let res = self.fingerprint();
+        // Put the command timeout back whether or not the probe answered: the device is kept and
+        // reused for signing, which legitimately takes longer.
+        self.transport.set_timeout(SerialTransport::TIMEOUT)?;
+        res
+    }
+
     pub fn new(port_name: String) -> Result<Self, SpecterError> {
         let transport = SerialTransport::new(port_name)?;
         Ok(Self {
@@ -222,7 +233,7 @@ impl Specter<SerialTransport> {
         let mut res = Vec::new();
         for port_name in SerialTransport::enumerate_potential_ports()? {
             let specter = Specter::<SerialTransport>::new(port_name)?;
-            if specter.get_master_fingerprint().is_ok() {
+            if specter.probe().is_ok() {
                 res.push(specter);
             }
         }
@@ -244,9 +255,14 @@ impl SerialTransport {
     pub const SPECTER_VID: u16 = 61525;
     pub const SPECTER_PID: u16 = 38914;
 
+    /// Long enough for the device to answer a real command, which may wait on the user.
+    pub const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+    /// Only used to check whether a port answers at all, see [`Specter::probe`].
+    pub const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+
     pub fn new(port_name: String) -> Result<Self, SpecterError> {
         let mut port = serialport::new(port_name, 9600)
-            .timeout(std::time::Duration::from_secs(5))
+            .timeout(Self::TIMEOUT)
             .open()
             .map_err(|e| SpecterError::Device(e.to_string()))?;
         port.write_data_terminal_ready(true)
@@ -254,6 +270,14 @@ impl SerialTransport {
         Ok(Self {
             stream: Arc::new(Mutex::new(port)),
         })
+    }
+
+    fn set_timeout(&self, timeout: std::time::Duration) -> Result<(), SpecterError> {
+        self.stream
+            .lock()
+            .expect("poisoned")
+            .set_timeout(timeout)
+            .map_err(|e| SpecterError::Device(e.to_string()))
     }
 
     pub fn enumerate_potential_ports() -> Result<Vec<String>, SpecterError> {
