@@ -356,7 +356,7 @@ impl PairedBitBox {
         match self.query_proto(Request::RestoreFromMnemonic(
             pb::RestoreFromMnemonicRequest {
                 timestamp: duration_since_epoch.as_secs() as u32,
-                timezone_offset: chrono::Local::now().offset().local_minus_utc(),
+                timezone_offset: util::local_utc_offset_secs(),
             },
         ))? {
             Response::Success(_) => Ok(()),
