@@ -11,8 +11,7 @@ use bitcoin::{
 };
 use ledger_bitcoin_client::psbt::PartialSignature;
 
-use ledger_apdu::APDUAnswer;
-use ledger_transport_hidapi::TransportNativeHID;
+use ledger_transport_hidapi::{APDUAnswer, TransportNativeHID};
 
 use ledger_bitcoin_client::{
     apdu::{APDUCommand, StatusWord},
@@ -227,7 +226,7 @@ impl Transport for TransportHID {
     type Error = Box<dyn Error>;
     fn exchange(&self, cmd: &APDUCommand) -> Result<(StatusWord, Vec<u8>), Self::Error> {
         self.0
-            .exchange(&ledger_apdu::APDUCommand {
+            .exchange(&ledger_transport_hidapi::APDUCommand {
                 ins: cmd.ins,
                 cla: cmd.cla,
                 p1: cmd.p1,

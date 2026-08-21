@@ -13,7 +13,9 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
+mod apdu;
 mod errors;
+pub use apdu::{APDUAnswer, APDUCommand};
 pub use errors::LedgerHIDError;
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -23,7 +25,6 @@ use log::info;
 use std::{io::Cursor, ops::Deref, sync::Mutex};
 
 pub use hidapi;
-use ledger_apdu::{APDUAnswer, APDUCommand};
 
 const LEDGER_VID: u16 = 0x2c97;
 const LEDGER_USAGE_PAGE: u16 = 0xFFA0;
