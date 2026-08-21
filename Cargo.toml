@@ -9,7 +9,7 @@ members = [
     "keys", "utils", "sign", "descriptor", "tx",
     "persist",
     "p2p",
-    "hwi", "hwi/cli",
+    "hwi", "hwi/cli", "hwi/coldcard",
     "hwi/ledger-bitcoin-client", "hwi/ledger-transport-hidapi", "hwi/bitbox-api",
     "secp256k1_spscan-sys",
 ]

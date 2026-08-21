@@ -40,7 +40,7 @@ minreq = { version = "3.0", default-features = false, features = ["https-rustls"
 bitbox-api = { path = "bitbox-api", default-features = false, features = ["usb"], optional = true }
 
 # coldcard
-coldcard = { version = "0.13.0", optional = true }
+coldcard = { package = "bwk-coldcard", path = "coldcard", optional = true }
 
 # ledger
 ledger-bitcoin-client = { path = "ledger-bitcoin-client", optional = true }
