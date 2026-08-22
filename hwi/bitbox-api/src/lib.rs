@@ -3,6 +3,9 @@
 pub mod btc;
 pub mod error;
 mod noise;
+mod pb_codec;
+#[cfg(test)]
+mod pb_wire_tests;
 #[cfg(feature = "usb")]
 pub mod usb;
 
@@ -24,8 +27,8 @@ use crate::error::{BitBoxError, Error};
 use pb::request::Request;
 use pb::response::Response;
 
+use crate::pb_codec::Message;
 use noise_protocol::DH;
-use prost::Message;
 
 use std::sync::Mutex;
 
