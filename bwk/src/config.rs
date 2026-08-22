@@ -54,7 +54,7 @@ pub const CONFIG_FILENAME: &str = "config.json";
 /// `Config::account_dir`. Headers are always binary-backed through
 /// `HeaderBackend`, independent of `persist_kind`; see the `header_store`
 /// module docs.
-pub const HEADERS_FILENAME: &str = "headers.bin";
+pub use bwk_electrum::config::HEADERS_FILENAME;
 /// Logical store name for the bwk per-address-tip subscription map.
 /// Re-export of the canonical constant in [`bwk_persist`].
 pub const STATUSES_STORE_KEY: &str = bwk_persist::STATUSES_STORE_KEY;
@@ -170,17 +170,48 @@ impl Config {
         })
     }
 
+    /// Reassemble a config from the scanner's view plus the wallet-only
+    /// settings. The inverse of [`Config::scanner`].
+    pub fn from_parts(scanner: bwk_electrum::ScannerConfig, mnemonic: Option<String>) -> Self {
+        let bwk_electrum::ScannerConfig {
+            data_dir,
+            dir_name,
+            account,
+            electrum_url,
+            electrum_port,
+            offline,
+            network,
+            look_ahead,
+            descriptor,
+            persist,
+            skip_labels,
+            persist_kind,
+        } = scanner;
+        Config {
+            data_dir,
+            dir_name,
+            account,
+            electrum_url,
+            electrum_port,
+            offline,
+            network,
+            look_ahead,
+            mnemonic,
+            descriptor,
+            persist,
+            skip_labels,
+            persist_kind,
+        }
+    }
+
     /// Return the directory where this account's files (or SQLite DB) live.
     pub fn account_dir(&self) -> PathBuf {
-        let mut dir = self.data_dir.clone();
-        dir.push(&self.dir_name);
-        dir.push(&self.account);
-        dir
+        self.scanner().account_dir()
     }
 
     /// Path to this account's binary header cache; see `HEADERS_FILENAME`.
     pub fn headers_path(&self) -> PathBuf {
-        self.account_dir().join(HEADERS_FILENAME)
+        self.scanner().headers_path()
     }
 
     /// View of this config that's safe to persist to disk.
@@ -472,6 +503,7 @@ impl Config {
             look_ahead: self.look_ahead,
             descriptor: self.descriptor.clone(),
             persist: self.persist,
+            skip_labels: self.skip_labels,
             persist_kind: self.persist_kind,
         }
     }

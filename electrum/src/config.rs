@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use bwk_persist::PersistenceKind;
 
+/// Filename for the binary header cache under [`ScannerConfig::account_dir`].
+/// Headers are always binary-backed, independent of `persist_kind`.
+pub const HEADERS_FILENAME: &str = "headers.bin";
+
 /// The derivation indexes reached on each keychain.
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Tip {
@@ -36,6 +40,11 @@ pub struct ScannerConfig {
     pub look_ahead: u32,
     pub descriptor: Descriptor<DescriptorPublicKey>,
     pub persist: bool,
+    /// When true, the label store is not loaded from or persisted to disk.
+    /// Used by `bwk_sp::Account` to delegate label management to the parent's
+    /// SpLabelStore.
+    #[serde(skip)]
+    pub skip_labels: bool,
     #[serde(skip)]
     pub persist_kind: PersistenceKind,
 }
@@ -63,20 +72,38 @@ impl ScannerConfig {
             look_ahead: 20,
             descriptor,
             persist,
+            skip_labels: false,
             persist_kind: PersistenceKind::default(),
         }
     }
 
+    /// Open the persistence backend this config selects, rooted at
+    /// [`ScannerConfig::account_dir`]. `NoopBackend` when `persist` is off.
+    pub fn build_backend(
+        &self,
+    ) -> Result<std::sync::Arc<dyn bwk_persist::PersistenceBackend>, bwk_persist::PersistError>
+    {
+        bwk_persist::build_backend(
+            self.persist.then_some(self.persist_kind),
+            self.account_dir(),
+        )
+    }
+
+    pub fn set_offline(&mut self, offline: bool) {
+        self.offline = Some(offline);
+    }
+
+    /// Where this account's files (or SQLite DB) live.
     pub fn account_dir(&self) -> PathBuf {
         let mut dir = self.data_dir.clone();
+        dir.push(&self.dir_name);
         dir.push(&self.account);
         dir
     }
 
+    /// This account's binary header cache.
     pub fn headers_path(&self) -> PathBuf {
-        let mut dir = self.data_dir.clone();
-        dir.push("headers");
-        dir
+        self.account_dir().join(HEADERS_FILENAME)
     }
 
     pub fn electrum_url(&self) -> String {

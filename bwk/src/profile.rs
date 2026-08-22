@@ -44,7 +44,9 @@ pub struct Stores<P: StorageProfile> {
 /// [`bwk_persist::NoopBackend`] so signer state never reaches the database;
 /// otherwise both arguments are the same handle.
 pub trait OpenFromBackend:
-    StorageProfile<HeaderStore = RamStore<DefaultBackend, u32, [u8; Header::SIZE]>> + Sized
+    StorageProfile<HeaderStore = RamStore<DefaultBackend, u32, [u8; Header::SIZE]>>
+    + bwk_electrum::profile::OpenScanFromBackend
+    + Sized
 {
     fn open(
         backend: Arc<dyn PersistenceBackend>,

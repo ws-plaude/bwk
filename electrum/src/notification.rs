@@ -1,7 +1,8 @@
 //! Events the scanner reports, and the errors it surfaces.
 
-use bwk_coin::Coin;
-use miniscript::bitcoin::{BlockHash, OutPoint, Txid};
+#[cfg(feature = "sp")]
+use miniscript::bitcoin::OutPoint;
+use miniscript::bitcoin::Txid;
 
 use bwk_persist::PersistError;
 

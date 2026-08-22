@@ -2,7 +2,6 @@
 
 pub mod account;
 pub mod config;
-pub mod history;
 #[cfg(any(feature = "logger", feature = "test", test))]
 pub mod log;
 pub mod profile;
@@ -14,6 +13,7 @@ pub use sync::SyncEstimator;
 #[cfg(feature = "sp")]
 pub use account::SpNotification;
 pub use account::{Account, Error, Notification, OpenError, TxListenerNotif};
+pub use bwk_electrum::history;
 pub use bwk_electrum::{parse_electrum_url, ElectrumScheme};
 pub use config::Config;
 pub use header_store::verify_merkle_branch;
