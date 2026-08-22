@@ -1,6 +1,6 @@
 #![allow(clippy::large_enum_variant)]
 
-pub mod coin;
+pub use bwk_coin as coin;
 pub mod coin_selection;
 pub mod descr_fingerprint;
 pub mod error;

@@ -1,0 +1,15 @@
+[package]
+name = "bwk-coin"
+version = "0.0.1"
+edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+keywords.workspace = true
+description = "Coin domain types shared by scanning and transaction building"
+
+[dependencies]
+miniscript = { workspace = true, features = ["serde", "base64"] }
+bitcoin = { workspace = true, features = ["rand-std"] }
+serde = { workspace = true, features = ["derive"] }
+bwk-error.workspace = true

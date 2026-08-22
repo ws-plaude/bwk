@@ -1,3 +1,23 @@
+//! Coin domain types.
+//!
+//! These describe what scanning finds and what spending consumes, so they sit
+//! below both `bwk-electrum` and `bwk-tx` rather than inside either.
+
+use bwk_error::Error as DeriveError;
+
+/// Errors constructing or converting a [`Coin`].
+#[derive(Debug, DeriveError)]
+pub enum Error {
+    #[error("failed to derive the descriptor")]
+    Derivation,
+    #[error("unknown keychain")]
+    KeyChain,
+    #[error("expected a single-path descriptor")]
+    MultiDescriptor,
+    #[error("failed to update the psbt input")]
+    Update,
+}
+
 use miniscript::{
     bitcoin::{
         self, absolute,
@@ -11,8 +31,6 @@ use miniscript::{
 use serde::{Deserialize, Serialize};
 
 use bitcoin::bip32::DerivationPath;
-
-use crate::Error;
 
 /// Witness satisfaction weight (WU) of a single taproot key-spend input:
 /// Schnorr sig 64 + sighash byte 1 + witness-stack length byte 1 = 66.
