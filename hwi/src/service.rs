@@ -120,14 +120,14 @@ where
         let sender = self.sender.clone();
         let fg = self.fingerprint;
         let device = self.device.clone();
-        tracing::debug!(
+        log::debug!(
             "SupportedDevice[{}]::get_extended_pubkey: spawning task, path={:?}",
             fg,
             path
         );
         thread::spawn(move || match (*device).get_extended_pubkey(&path) {
             Ok(xpub) => {
-                tracing::debug!(
+                log::debug!(
                     "SupportedDevice[{}]::get_extended_pubkey: success, xpub={}",
                     fg,
                     xpub
@@ -135,7 +135,7 @@ where
                 let _ = sender.send(SigningDeviceMsg::XPub(id, fg, path, xpub).into());
             }
             Err(e) => {
-                tracing::debug!("SupportedDevice[{}]::get_extended_pubkey: error={}", fg, e);
+                log::debug!("SupportedDevice[{}]::get_extended_pubkey: error={}", fg, e);
                 let _ = sender.send(SigningDeviceMsg::Error(Some(id), e.to_string()).into());
             }
         });
@@ -147,7 +147,7 @@ where
         let sender = self.sender.clone();
         let fg = self.fingerprint;
         let device = self.device.clone();
-        tracing::debug!(
+        log::debug!(
             "SupportedDevice[{}]::register_wallet: spawning task, name={}, policy={}",
             fg,
             name,
@@ -155,7 +155,7 @@ where
         );
         thread::spawn(move || match (*device).register_wallet(&name, &policy) {
             Ok(hmac) => {
-                tracing::debug!(
+                log::debug!(
                     "SupportedDevice[{}]::register_wallet: success, hmac={:?}",
                     fg,
                     hmac
@@ -163,7 +163,7 @@ where
                 let _ = sender.send(SigningDeviceMsg::WalletRegistered(id, fg, name, hmac).into());
             }
             Err(e) => {
-                tracing::debug!("SupportedDevice[{}]::register_wallet: error={}", fg, e);
+                log::debug!("SupportedDevice[{}]::register_wallet: error={}", fg, e);
                 let _ = sender.send(SigningDeviceMsg::Error(Some(id), e.to_string()).into());
             }
         });
@@ -175,7 +175,7 @@ where
         let sender = self.sender.clone();
         let fg = self.fingerprint;
         let device = self.device.clone();
-        tracing::debug!(
+        log::debug!(
             "SupportedDevice[{}]::is_wallet_registered: spawning task, name={}, policy={}",
             fg,
             name,
@@ -184,7 +184,7 @@ where
         thread::spawn(
             move || match (*device).is_wallet_registered(&name, &policy) {
                 Ok(registered) => {
-                    tracing::debug!(
+                    log::debug!(
                         "SupportedDevice[{}]::is_wallet_registered: success, registered={}",
                         fg,
                         registered
@@ -194,7 +194,7 @@ where
                     );
                 }
                 Err(e) => {
-                    tracing::debug!("SupportedDevice[{}]::is_wallet_registered: error={}", fg, e);
+                    log::debug!("SupportedDevice[{}]::is_wallet_registered: error={}", fg, e);
                     let _ = sender.send(SigningDeviceMsg::Error(Some(id), e.to_string()).into());
                 }
             },
@@ -206,18 +206,18 @@ where
         let sender = self.sender.clone();
         let fg = self.fingerprint;
         let device = self.device.clone();
-        tracing::debug!(
+        log::debug!(
             "SupportedDevice[{}]::display_address: spawning task, script={:?}",
             fg,
             script
         );
         thread::spawn(move || match (*device).display_address(&script) {
             Ok(()) => {
-                tracing::debug!("SupportedDevice[{}]::display_address: success", fg);
+                log::debug!("SupportedDevice[{}]::display_address: success", fg);
                 let _ = sender.send(SigningDeviceMsg::AddressDisplayed(id, fg, script).into());
             }
             Err(e) => {
-                tracing::debug!("SupportedDevice[{}]::display_address: error={}", fg, e);
+                log::debug!("SupportedDevice[{}]::display_address: error={}", fg, e);
                 let _ = sender.send(SigningDeviceMsg::Error(Some(id), e.to_string()).into());
             }
         });
@@ -228,14 +228,14 @@ where
         let sender = self.sender.clone();
         let fg = self.fingerprint;
         let device = self.device.clone();
-        tracing::debug!("SupportedDevice[{}]::sign_tx: spawning task", fg);
+        log::debug!("SupportedDevice[{}]::sign_tx: spawning task", fg);
         thread::spawn(move || match (*device).sign_tx(&mut tx) {
             Ok(()) => {
-                tracing::debug!("SupportedDevice[{}]::sign_tx: success", fg);
+                log::debug!("SupportedDevice[{}]::sign_tx: success", fg);
                 let _ = sender.send(SigningDeviceMsg::TransactionSigned(id, fg, tx).into());
             }
             Err(e) => {
-                tracing::debug!("SupportedDevice[{}]::sign_tx: error={}", fg, e);
+                log::debug!("SupportedDevice[{}]::sign_tx: error={}", fg, e);
                 let _ = sender.send(SigningDeviceMsg::Error(Some(id), e.to_string()).into());
             }
         });
@@ -399,7 +399,7 @@ where
     Id: Send + Clone + 'static,
 {
     pub fn new(network: Network) -> Self {
-        tracing::debug!("HwiService::new: network={:?}", network);
+        log::debug!("HwiService::new: network={:?}", network);
         Self {
             network,
             devices: Default::default(),
@@ -420,14 +420,14 @@ where
     /// for all BitBox02 devices.
     #[cfg(feature = "bitbox")]
     pub fn set_bitbox_noise_config(&self, noise_config: Arc<dyn NoiseConfig>) {
-        tracing::debug!("Setting BitBox02 pairing configuration");
+        log::debug!("Setting BitBox02 pairing configuration");
         *self.bitbox_noise_config.lock().expect("poisoned") = Some(noise_config);
     }
 
     /// Clear the BitBox02 pairing configuration.
     #[cfg(feature = "bitbox")]
     pub fn clear_bitbox_noise_config(&self) {
-        tracing::debug!("Clearing BitBox02 pairing configuration");
+        log::debug!("Clearing BitBox02 pairing configuration");
         *self.bitbox_noise_config.lock().expect("poisoned") = None;
     }
 
@@ -449,7 +449,7 @@ where
 
         if prev_count == 0 {
             // First caller - start the listener
-            tracing::info!(
+            log::info!(
                 "Starting HWI listener service (ref_count: {} -> {})",
                 prev_count,
                 new_count
@@ -464,7 +464,7 @@ where
             let bitbox_noise_config = self.bitbox_noise_config.clone();
 
             let handle = std::thread::spawn(move || {
-                tracing::debug!("HWI listener thread started");
+                log::debug!("HWI listener thread started");
                 listen(
                     sender,
                     devices,
@@ -473,12 +473,12 @@ where
                     #[cfg(feature = "bitbox")]
                     bitbox_noise_config,
                 );
-                tracing::debug!("HWI listener thread stopped");
+                log::debug!("HWI listener thread stopped");
             });
 
             *self.listener_handle.lock().expect("poisoned") = Some(handle);
         } else {
-            tracing::debug!(
+            log::debug!(
                 "HWI listener already running, incrementing ref_count: {} -> {}",
                 prev_count,
                 new_count
@@ -488,12 +488,12 @@ where
 
     /// Ref-counted stop; only last caller joins the listener thread.
     pub fn stop(&self) {
-        tracing::debug!("stop() called");
+        log::debug!("stop() called");
         // Use compare-and-swap loop to safely decrement only when > 0
         loop {
             let current = self.ref_count.load(Ordering::SeqCst);
             if current == 0 {
-                tracing::warn!("stop() called but ref_count is already 0");
+                log::warn!("stop() called but ref_count is already 0");
                 return;
             }
             match self.ref_count.compare_exchange(
@@ -506,7 +506,7 @@ where
                     let new_count = prev_count - 1;
                     if prev_count == 1 {
                         // Last caller - stop the listener
-                        tracing::info!(
+                        log::info!(
                             "Stopping HWI listener service (ref_count: {} -> {})",
                             prev_count,
                             new_count
@@ -516,7 +516,7 @@ where
                         // Take the handle - the thread will stop on its own when it sees the shutdown flag
                         let _ = self.listener_handle.lock().expect("poisoned").take();
                     } else {
-                        tracing::debug!(
+                        log::debug!(
                             "HWI listener still in use, decrementing ref_count: {} -> {}",
                             prev_count,
                             new_count
@@ -539,7 +539,7 @@ where
     Id: Send + Clone + 'static,
 {
     fn drop(&mut self) {
-        tracing::debug!("HwiService dropped");
+        log::debug!("HwiService dropped");
     }
 }
 
@@ -554,16 +554,16 @@ where
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::debug!("unlock_bitbox[{}]: waiting for pairing confirmation", id);
+    log::debug!("unlock_bitbox[{}]: waiting for pairing confirmation", id);
     let paired_bb = bb.wait_confirm()?;
-    tracing::debug!("unlock_bitbox[{}]: pairing confirmed", id);
+    log::debug!("unlock_bitbox[{}]: pairing confirmed", id);
     let bitbox2 = BitBox02::from(paired_bb).with_network(network);
-    tracing::debug!("unlock_bitbox[{}]: getting fingerprint", id);
+    log::debug!("unlock_bitbox[{}]: getting fingerprint", id);
     let fingerprint = bitbox2.get_master_fingerprint()?;
-    tracing::debug!("unlock_bitbox[{}]: fingerprint={}", id, fingerprint);
+    log::debug!("unlock_bitbox[{}]: fingerprint={}", id, fingerprint);
     let version = bitbox2.get_version().ok();
-    tracing::debug!("unlock_bitbox[{}]: version={:?}", id, version);
-    tracing::debug!(
+    log::debug!("unlock_bitbox[{}]: version={:?}", id, version);
+    log::debug!(
         "unlock_bitbox[{}]: returning Supported device with fingerprint={}",
         id,
         fingerprint
@@ -589,15 +589,15 @@ fn listen<Message, Id>(
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::info!("HWI listener starting for network: {:?}", network);
+    log::info!("HWI listener starting for network: {:?}", network);
 
     let mut hid = match ledger::HidApi::new() {
         Ok(api) => {
-            tracing::debug!("HID API initialized successfully");
+            log::debug!("HID API initialized successfully");
             api
         }
         Err(e) => {
-            tracing::error!("Failed to initialize HID API: {}", e);
+            log::error!("Failed to initialize HID API: {}", e);
             let _ = sender.send(SigningDeviceMsg::Error(None, e.to_string()).into());
             return;
         }
@@ -621,19 +621,19 @@ fn listen<Message, Id>(
     loop {
         // Check for shutdown signal
         if shutdown.load(Ordering::Relaxed) {
-            tracing::info!("HWI listener received shutdown signal, exiting");
+            log::info!("HWI listener received shutdown signal, exiting");
             return;
         }
 
-        tracing::debug!("HWI poll cycle starting");
+        log::debug!("HWI poll cycle starting");
 
         if let Err(e) = hid.refresh_devices() {
-            tracing::warn!("Failed to refresh HID devices: {}", e);
+            log::warn!("Failed to refresh HID devices: {}", e);
             let _ = sender.send(SigningDeviceMsg::Error(None, e.to_string()).into());
             continue;
         };
 
-        tracing::trace!("HID devices refreshed successfully");
+        log::trace!("HID devices refreshed successfully");
 
         #[cfg(feature = "specter")]
         handle_specter_simulator(
@@ -656,7 +656,7 @@ fn listen<Message, Id>(
         );
 
         let list = hid.device_list().collect::<Vec<_>>();
-        tracing::trace!("HID device list contains {} device(s)", list.len());
+        log::trace!("HID device list contains {} device(s)", list.len());
 
         #[cfg(feature = "bitbox")]
         let bitbox_devices: Vec<_> = list
@@ -664,7 +664,7 @@ fn listen<Message, Id>(
             .filter_map(|d| crate::bitbox::is_bitbox02(d).then_some(*d))
             .collect();
         #[cfg(feature = "bitbox")]
-        tracing::trace!(
+        log::trace!(
             "Filtered {} BitBox02 device(s) from HID list",
             bitbox_devices.len()
         );
@@ -686,7 +686,7 @@ fn listen<Message, Id>(
             .filter_map(|d| crate::coldcard::is_coldcard(d).then_some(*d))
             .collect();
         #[cfg(feature = "coldcard")]
-        tracing::trace!(
+        log::trace!(
             "Filtered {} Coldcard device(s) from HID list",
             coldcard_devices.len()
         );
@@ -703,7 +703,7 @@ fn listen<Message, Id>(
         #[cfg(feature = "ledger")]
         let ledger_devices: Vec<_> = TransportNativeHID::list_ledgers(&hid).collect();
         #[cfg(feature = "ledger")]
-        tracing::trace!("Found {} Ledger device(s)", ledger_devices.len());
+        log::trace!("Found {} Ledger device(s)", ledger_devices.len());
 
         #[cfg(feature = "ledger")]
         handle_ledger(
@@ -714,7 +714,7 @@ fn listen<Message, Id>(
             &hid,
         );
 
-        tracing::trace!("HWI poll cycle complete, sleeping for 2 seconds");
+        log::trace!("HWI poll cycle complete, sleeping for 2 seconds");
         std::thread::sleep(Duration::from_secs(2));
     }
 }
@@ -735,36 +735,36 @@ fn handle_specter_simulator<Message, Id>(
         .expect("poisoned")
         .contains_key(SPECTER_SIMULATOR_ID)
     {
-        tracing::trace!("handle_specter_simulator: device already in map, skipping");
+        log::trace!("handle_specter_simulator: device already in map, skipping");
         return;
     }
     let poll = if let Some(h) = handle {
         if h.is_finished() {
-            tracing::trace!("handle_specter_simulator: previous handle finished, will poll");
+            log::trace!("handle_specter_simulator: previous handle finished, will poll");
             *handle = None;
             true
         } else {
-            tracing::debug!("handle_specter_simulator: previous handle still running, skipping");
+            log::debug!("handle_specter_simulator: previous handle still running, skipping");
             false
         }
     } else {
-        tracing::trace!("handle_specter_simulator: no handle, will poll");
+        log::trace!("handle_specter_simulator: no handle, will poll");
         true
     };
     if poll {
-        tracing::trace!("handle_specter_simulator: spawning task");
+        log::trace!("handle_specter_simulator: spawning task");
         let jh = thread::spawn(move || {
-            tracing::trace!("handle_specter_simulator: calling try_connect");
+            log::trace!("handle_specter_simulator: calling try_connect");
             match specter::SpecterSimulator::try_connect() {
                 Ok(device) => {
-                    tracing::debug!("handle_specter_simulator: creating SigningDevice");
+                    log::debug!("handle_specter_simulator: creating SigningDevice");
                     match SigningDevice::new(
                         SPECTER_SIMULATOR_ID.into(),
                         Arc::new(device),
                         sender.clone(),
                     ) {
                         Ok(hw) => {
-                            tracing::debug!("handle_specter_simulator: inserting device into map");
+                            log::debug!("handle_specter_simulator: inserting device into map");
                             devices
                                 .lock()
                                 .expect("poisoned")
@@ -772,24 +772,24 @@ fn handle_specter_simulator<Message, Id>(
                             let _ = sender.send(SigningDeviceMsg::Update.into());
                         }
                         Err(e) => {
-                            tracing::debug!("Failed to initialize Specter Simulator: {}", e);
+                            log::debug!("Failed to initialize Specter Simulator: {}", e);
                         }
                     }
                 }
                 Err(HWIError::DeviceNotFound) => {
-                    tracing::trace!("handle_specter_simulator: DeviceNotFound");
+                    log::trace!("handle_specter_simulator: DeviceNotFound");
                     let was_present = devices
                         .lock()
                         .expect("poisoned")
                         .remove(SPECTER_SIMULATOR_ID)
                         .is_some();
                     if was_present {
-                        tracing::debug!("handle_specter_simulator: removed from device map");
+                        log::debug!("handle_specter_simulator: removed from device map");
                         let _ = sender.send(SigningDeviceMsg::Update.into());
                     }
                 }
                 Err(e) => {
-                    tracing::trace!("Specter Simulator not available: {}", e);
+                    log::trace!("Specter Simulator not available: {}", e);
                 }
             }
         });
@@ -808,7 +808,7 @@ where
 {
     // If device is already in the map, don't poll it again
     if devices.lock().expect("poisoned").contains_key(id) {
-        tracing::trace!(
+        log::trace!(
             "should_poll({}): device already in map, returning false",
             id
         );
@@ -818,7 +818,7 @@ where
     let result = match handles.get(id) {
         Some(h) => {
             let finished = h.is_finished();
-            tracing::trace!(
+            log::trace!(
                 "should_poll({}): handle exists, is_finished={}",
                 id,
                 finished
@@ -826,7 +826,7 @@ where
             finished
         }
         None => {
-            tracing::trace!("should_poll({}): no handle, returning true", id);
+            log::trace!("should_poll({}): no handle, returning true", id);
             true
         }
     };
@@ -843,7 +843,7 @@ fn cleanup_disconnected<Message, Id>(
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::trace!(
+    log::trace!(
         "cleanup_disconnected: checking prefix '{}', connected_ids={:?}",
         prefix,
         connected_ids
@@ -856,7 +856,7 @@ fn cleanup_disconnected<Message, Id>(
             .filter(|id| id.starts_with(prefix))
             .cloned()
             .collect();
-        tracing::trace!(
+        log::trace!(
             "cleanup_disconnected: current devices with prefix '{}': {:?}",
             prefix,
             current_ids
@@ -868,7 +868,7 @@ fn cleanup_disconnected<Message, Id>(
     };
 
     if !ids_to_remove.is_empty() {
-        tracing::trace!(
+        log::trace!(
             "Removing {} disconnected device(s) with prefix '{}': {:?}",
             ids_to_remove.len(),
             prefix,
@@ -876,13 +876,13 @@ fn cleanup_disconnected<Message, Id>(
         );
         let mut devices_lock = devices.lock().expect("poisoned");
         for id in &ids_to_remove {
-            tracing::debug!("cleanup_disconnected: removing device {}", id);
+            log::debug!("cleanup_disconnected: removing device {}", id);
             devices_lock.remove(id);
             handles.remove(id);
         }
         let _ = sender.send(SigningDeviceMsg::Update.into());
     } else {
-        tracing::trace!(
+        log::trace!(
             "cleanup_disconnected: no devices to remove for prefix '{}'",
             prefix
         );
@@ -902,31 +902,31 @@ fn handle_specter<Message, Id>(
         let id = format!("specter-{port}");
         id.replace("\"", "")
     }
-    tracing::trace!("handle_specter: enumerating potential ports");
+    log::trace!("handle_specter: enumerating potential ports");
     match specter::SerialTransport::enumerate_potential_ports() {
         Ok(ports) => {
             if !ports.is_empty() {
-                tracing::debug!("Found {} potential Specter port(s)", ports.len());
+                log::debug!("Found {} potential Specter port(s)", ports.len());
             }
-            tracing::trace!("handle_specter: ports={:?}", ports);
+            log::trace!("handle_specter: ports={:?}", ports);
             let connected_ids: Vec<_> = ports.iter().map(|p| specter_id(p)).collect();
             cleanup_disconnected(&sender, handles, &devices, &connected_ids, "specter-");
 
             for port in ports {
                 let id = specter_id(&port);
-                tracing::trace!("handle_specter: checking port {} (id={})", port, id);
+                log::trace!("handle_specter: checking port {} (id={})", port, id);
                 if !should_poll(handles, &devices, &id) {
-                    tracing::trace!("handle_specter: skipping {} (should_poll=false)", id);
+                    log::trace!("handle_specter: skipping {} (should_poll=false)", id);
                     continue;
                 }
 
-                tracing::trace!("handle_specter: spawning task for device {}", id);
+                log::trace!("handle_specter: spawning task for device {}", id);
                 let devices = devices.clone();
                 let sender = sender.clone();
                 let id_ = id.clone();
                 let port_clone = port.clone();
                 let jh = thread::spawn(move || {
-                    tracing::trace!(
+                    log::trace!(
                         "handle_specter[{}]: creating Specter device on {}",
                         id_,
                         port_clone
@@ -935,7 +935,7 @@ fn handle_specter<Message, Id>(
                         match specter::Specter::<specter::SerialTransport>::new(port_clone.clone())
                         {
                             Err(e) => {
-                                tracing::trace!(
+                                log::trace!(
                                     "Failed to create Specter device on {}: {}",
                                     port_clone,
                                     e
@@ -944,24 +944,21 @@ fn handle_specter<Message, Id>(
                             }
                             Ok(device) => device,
                         };
-                    tracing::trace!("handle_specter[{}]: checking fingerprint with timeout", id_);
+                    log::trace!("handle_specter[{}]: checking fingerprint with timeout", id_);
                     if device.fingerprint().is_ok() {
-                        tracing::debug!(
+                        log::debug!(
                             "handle_specter[{}]: creating SigningDevice on port {}",
                             id_,
                             port_clone
                         );
                         match SigningDevice::new(id_.clone(), Arc::new(device), sender.clone()) {
                             Ok(hw) => {
-                                tracing::debug!(
-                                    "handle_specter[{}]: inserting device into map",
-                                    id_
-                                );
+                                log::debug!("handle_specter[{}]: inserting device into map", id_);
                                 devices.lock().expect("poisoned").insert(id_, hw);
                                 let _ = sender.send(SigningDeviceMsg::Update.into());
                             }
                             Err(e) => {
-                                tracing::error!(
+                                log::error!(
                                     "Failed to initialize Specter on {}: {}",
                                     port_clone,
                                     e
@@ -969,13 +966,13 @@ fn handle_specter<Message, Id>(
                             }
                         }
                     } else {
-                        tracing::trace!("Specter device timeout on port {}", port_clone);
+                        log::trace!("Specter device timeout on port {}", port_clone);
                     }
                 });
                 handles.insert(id, jh);
             }
         }
-        Err(e) => tracing::error!("Error while listing specter wallets: {}", e),
+        Err(e) => log::error!("Error while listing specter wallets: {}", e),
     }
 }
 
@@ -994,34 +991,34 @@ fn handle_jade<Message, Id>(
         id.replace("\"", "")
     }
 
-    tracing::trace!("handle_jade: enumerating potential ports");
+    log::trace!("handle_jade: enumerating potential ports");
     match jade::SerialTransport::enumerate_potential_ports() {
         Ok(ports) => {
             if !ports.is_empty() {
-                tracing::debug!("Found {} potential Jade port(s)", ports.len());
+                log::debug!("Found {} potential Jade port(s)", ports.len());
             }
-            tracing::trace!("handle_jade: ports={:?}", ports);
+            log::trace!("handle_jade: ports={:?}", ports);
             let connected_ids: Vec<_> = ports.iter().map(|p| jade_id(p)).collect();
             cleanup_disconnected(sender, handles, &devices, &connected_ids, "jade-");
 
             for port in ports {
                 let id = jade_id(&port);
-                tracing::trace!("handle_jade: checking port {} (id={})", port, id);
+                log::trace!("handle_jade: checking port {} (id={})", port, id);
                 if !should_poll(handles, &devices, &id) {
-                    tracing::trace!("handle_jade: skipping {} (should_poll=false)", id);
+                    log::trace!("handle_jade: skipping {} (should_poll=false)", id);
                     continue;
                 }
 
-                tracing::trace!("handle_jade: spawning task for device {}", id);
+                log::trace!("handle_jade: spawning task for device {}", id);
                 let devices = devices.clone();
                 let sender = sender.clone();
                 let id_ = id.clone();
                 let port_clone = port.clone();
                 let jh = thread::spawn(move || {
-                    tracing::trace!("handle_jade[{}]: creating transport on {}", id_, port_clone);
+                    log::trace!("handle_jade[{}]: creating transport on {}", id_, port_clone);
                     let transport = match jade::SerialTransport::new(port_clone.clone()) {
                         Err(e) => {
-                            tracing::error!(
+                            log::error!(
                                 "Failed to create Jade transport on {}: {:?}",
                                 port_clone,
                                 e
@@ -1030,11 +1027,11 @@ fn handle_jade<Message, Id>(
                         }
                         Ok(transport) => transport,
                     };
-                    tracing::trace!("handle_jade[{}]: getting device info", id_);
+                    log::trace!("handle_jade[{}]: getting device info", id_);
                     let device = Jade::new(transport).with_network(network);
                     let info = match device.get_info() {
                         Ok(i) => {
-                            tracing::debug!(
+                            log::debug!(
                                 "handle_jade[{}]: got info, state={:?}, version={}",
                                 id_,
                                 i.jade_state,
@@ -1043,17 +1040,17 @@ fn handle_jade<Message, Id>(
                             i
                         }
                         Err(e) => {
-                            tracing::error!("Failed to get Jade info on {}: {}", port_clone, e);
+                            log::error!("Failed to get Jade info on {}: {}", port_clone, e);
                             return;
                         }
                     };
-                    tracing::debug!(
+                    log::debug!(
                         "Jade device detected on port {} (state: {:?})",
                         port_clone,
                         info.jade_state
                     );
                     let version = crate::parse_version(&info.jade_version).ok();
-                    tracing::debug!("handle_jade[{}]: calling handle_jade_device", id_);
+                    log::debug!("handle_jade[{}]: calling handle_jade_device", id_);
                     if let Some(dev) = handle_jade_device(
                         info,
                         network,
@@ -1062,7 +1059,7 @@ fn handle_jade<Message, Id>(
                         version,
                         sender.clone(),
                     ) {
-                        tracing::debug!(
+                        log::debug!(
                             "handle_jade[{}]: device created, variant={:?}",
                             id_,
                             match &dev {
@@ -1075,7 +1072,7 @@ fn handle_jade<Message, Id>(
                         devices.lock().expect("poisoned").insert(id_.clone(), dev);
                         let _ = sender.send(SigningDeviceMsg::Update.into());
                         if let Some(SigningDevice::Locked { device, .. }) = locked {
-                            tracing::debug!(
+                            log::debug!(
                                 "handle_jade[{}]: device is locked, attempting unlock",
                                 id_
                             );
@@ -1088,13 +1085,13 @@ fn handle_jade<Message, Id>(
                             }
                         }
                     } else {
-                        tracing::trace!("handle_jade[{}]: handle_jade_device returned None", id_);
+                        log::trace!("handle_jade[{}]: handle_jade_device returned None", id_);
                     }
                 });
                 handles.insert(id, jh);
             }
         }
-        Err(e) => tracing::warn!("Error while listing jade devices: {}", e),
+        Err(e) => log::warn!("Error while listing jade devices: {}", e),
     }
 }
 
@@ -1111,7 +1108,7 @@ where
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::debug!(
+    log::debug!(
         "handle_jade_device[{}]: network={:?}, jade_networks={:?}, jade_state={:?}",
         id,
         network,
@@ -1124,7 +1121,7 @@ where
         && info.jade_networks != jade::api::JadeNetworks::All)
         || (network != Network::Bitcoin && info.jade_networks == jade::api::JadeNetworks::Main)
     {
-        tracing::debug!(
+        log::debug!(
             "handle_jade_device[{}]: network mismatch, returning Unsupported",
             id
         );
@@ -1140,7 +1137,7 @@ where
             | jade::api::JadeState::Temp
             | jade::api::JadeState::Uninit
             | jade::api::JadeState::Unsaved => {
-                tracing::debug!(
+                log::debug!(
                     "handle_jade_device[{}]: state={:?}, returning Locked",
                     id,
                     info.jade_state
@@ -1153,7 +1150,7 @@ where
                 })
             }
             jade::api::JadeState::Ready => {
-                tracing::debug!(
+                log::debug!(
                     "handle_jade_device[{}]: state=Ready, getting fingerprint",
                     id
                 );
@@ -1161,7 +1158,7 @@ where
                 let version = device.get_version().ok();
                 let fingerprint = match device.get_master_fingerprint() {
                     Err(HWIError::NetworkMismatch) => {
-                        tracing::debug!(
+                        log::debug!(
                             "handle_jade_device[{}]: fingerprint returned NetworkMismatch",
                             id
                         );
@@ -1173,11 +1170,11 @@ where
                         });
                     }
                     Err(e) => {
-                        tracing::error!("{e}");
+                        log::error!("{e}");
                         return None;
                     }
                     Ok(fingerprint) => {
-                        tracing::debug!(
+                        log::debug!(
                             "handle_jade_device[{}]: got fingerprint={}",
                             id,
                             fingerprint
@@ -1185,7 +1182,7 @@ where
                         fingerprint
                     }
                 };
-                tracing::debug!(
+                log::debug!(
                     "handle_jade_device[{}]: returning Supported with fingerprint={}",
                     id,
                     fingerprint
@@ -1215,10 +1212,10 @@ fn handle_locked_jade<Message, Id>(
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::debug!("Attempting to unlock Jade device {}", id);
+    log::debug!("Attempting to unlock Jade device {}", id);
     if let Err(e) = device.auth() {
-        tracing::error!("Failed to unlock Jade {}: {}", id, e);
-        tracing::debug!(
+        log::error!("Failed to unlock Jade {}: {}", id, e);
+        log::debug!(
             "handle_locked_jade[{}]: removing from device map after auth failure",
             id
         );
@@ -1226,14 +1223,14 @@ fn handle_locked_jade<Message, Id>(
         let _ = sender.send(SigningDeviceMsg::Update.into());
         return;
     }
-    tracing::info!("Jade device {} successfully unlocked", id);
-    tracing::trace!(
+    log::info!("Jade device {} successfully unlocked", id);
+    log::trace!(
         "handle_locked_jade[{}]: getting device info after unlock",
         id
     );
     let info = match device.get_info() {
         Ok(i) => {
-            tracing::debug!(
+            log::debug!(
                 "handle_locked_jade[{}]: got info, state={:?}",
                 id,
                 i.jade_state
@@ -1241,8 +1238,8 @@ fn handle_locked_jade<Message, Id>(
             i
         }
         Err(e) => {
-            tracing::error!("Failed to get Jade info {}: {}", id, e);
-            tracing::debug!(
+            log::error!("Failed to get Jade info {}: {}", id, e);
+            log::debug!(
                 "handle_locked_jade[{}]: removing from device map after info failure",
                 id
             );
@@ -1251,17 +1248,17 @@ fn handle_locked_jade<Message, Id>(
             return;
         }
     };
-    tracing::trace!("handle_locked_jade[{}]: calling handle_jade_device", id);
+    log::trace!("handle_locked_jade[{}]: calling handle_jade_device", id);
     if let Some(jade) = handle_jade_device(info, network, device, id.clone(), None, sender.clone())
     {
-        tracing::debug!(
+        log::debug!(
             "handle_locked_jade[{}]: inserting unlocked device into map",
             id
         );
         devices.lock().expect("poisoned").insert(id, jade);
         let _ = sender.send(SigningDeviceMsg::Update.into());
     } else {
-        tracing::trace!(
+        log::trace!(
             "handle_locked_jade[{}]: handle_jade_device returned None",
             id
         );
@@ -1284,35 +1281,35 @@ fn handle_ledger_simulator<Message, Id>(
         .expect("poisoned")
         .contains_key(LEDGER_SIMULATOR_ID)
     {
-        tracing::trace!("handle_ledger_simulator: device already in map, skipping");
+        log::trace!("handle_ledger_simulator: device already in map, skipping");
         return;
     }
     let poll = if let Some(h) = handle {
         if h.is_finished() {
-            tracing::trace!("handle_ledger_simulator: previous handle finished, will poll");
+            log::trace!("handle_ledger_simulator: previous handle finished, will poll");
             *handle = None;
             true
         } else {
-            tracing::debug!("handle_ledger_simulator: previous handle still running, skipping");
+            log::debug!("handle_ledger_simulator: previous handle still running, skipping");
             false
         }
     } else {
-        tracing::trace!("handle_ledger_simulator: no handle, will poll");
+        log::trace!("handle_ledger_simulator: no handle, will poll");
         true
     };
     if poll {
-        tracing::trace!("handle_ledger_simulator: spawning task");
+        log::trace!("handle_ledger_simulator: spawning task");
         let sender_ = sender.clone();
         let jh = thread::spawn(move || {
-            tracing::trace!("handle_ledger_simulator: calling try_connect");
+            log::trace!("handle_ledger_simulator: calling try_connect");
             match ledger::LedgerSimulator::try_connect() {
                 Ok(device) => {
-                    tracing::debug!("Ledger Simulator connected");
-                    tracing::trace!("handle_ledger_simulator: calling handle_ledger_device");
+                    log::debug!("Ledger Simulator connected");
+                    log::trace!("handle_ledger_simulator: calling handle_ledger_device");
                     match handle_ledger_device(LEDGER_SIMULATOR_ID.into(), device, sender_.clone())
                     {
                         Ok(hw) => {
-                            tracing::debug!("handle_ledger_simulator: inserting device into map");
+                            log::debug!("handle_ledger_simulator: inserting device into map");
                             devices
                                 .lock()
                                 .expect("poisoned")
@@ -1320,25 +1317,25 @@ fn handle_ledger_simulator<Message, Id>(
                             let _ = sender.send(SigningDeviceMsg::Update.into());
                         }
                         Err(e) => {
-                            tracing::debug!("Failed to initialize Ledger Simulator: {}", e);
+                            log::debug!("Failed to initialize Ledger Simulator: {}", e);
                         }
                     }
                 }
                 Err(HWIError::DeviceNotFound) => {
-                    tracing::trace!("handle_ledger_simulator: DeviceNotFound");
+                    log::trace!("handle_ledger_simulator: DeviceNotFound");
                     let was_present = devices
                         .lock()
                         .expect("poisoned")
                         .remove(LEDGER_SIMULATOR_ID)
                         .is_some();
                     if was_present {
-                        tracing::info!("Ledger Simulator disconnected");
-                        tracing::debug!("handle_ledger_simulator: removed from device map");
+                        log::info!("Ledger Simulator disconnected");
+                        log::debug!("handle_ledger_simulator: removed from device map");
                         let _ = sender.send(SigningDeviceMsg::Update.into());
                     }
                 }
                 Err(e) => {
-                    tracing::trace!("Ledger Simulator not available: {}", e);
+                    log::trace!("Ledger Simulator not available: {}", e);
                 }
             }
         });
@@ -1375,33 +1372,33 @@ fn handle_bitbox02<Message, Id>(
         id.replace("\"", "")
     }
 
-    tracing::trace!("handle_bitbox02: processing {} device(s)", list.len());
+    log::trace!("handle_bitbox02: processing {} device(s)", list.len());
 
     if !list.is_empty() {
-        tracing::trace!("Found {} potential BitBox02 device(s)", list.len());
+        log::trace!("Found {} potential BitBox02 device(s)", list.len());
     }
 
     let connected_ids: Vec<_> = list.iter().map(|d| bitbox_id(d)).collect();
-    tracing::trace!("handle_bitbox02: connected_ids={:?}", connected_ids);
+    log::trace!("handle_bitbox02: connected_ids={:?}", connected_ids);
     cleanup_disconnected(sender, handles, &devices, &connected_ids, "bitbox-");
 
     for device_info in list {
         if crate::bitbox::is_bitbox02(device_info) {
             let id = bitbox_id(device_info);
-            tracing::trace!(
+            log::trace!(
                 "handle_bitbox02: checking device {} (vid={}, pid={})",
                 id,
                 device_info.vendor_id(),
                 device_info.product_id()
             );
             if !should_poll(handles, &devices, &id) {
-                tracing::trace!("handle_bitbox02: skipping {} (should_poll=false)", id);
+                log::trace!("handle_bitbox02: skipping {} (should_poll=false)", id);
                 continue;
             }
 
-            tracing::trace!("handle_bitbox02: opening HID device {}", id);
+            log::trace!("handle_bitbox02: opening HID device {}", id);
             if let Ok(device) = device_info.open_device(hid) {
-                tracing::trace!("handle_bitbox02: spawning task for device {}", id);
+                log::trace!("handle_bitbox02: spawning task for device {}", id);
                 let devices = devices.clone();
                 let id_ = id.clone();
                 let sender = sender.clone();
@@ -1409,7 +1406,7 @@ fn handle_bitbox02<Message, Id>(
                 let bitbox_noise_config = bitbox_noise_config.clone();
 
                 let jh = thread::spawn(move || {
-                    tracing::debug!("Connecting to BitBox02 device {}", id_);
+                    log::debug!("Connecting to BitBox02 device {}", id_);
 
                     // Get the pairing config if available
                     #[cfg(feature = "bitbox")]
@@ -1420,10 +1417,10 @@ fn handle_bitbox02<Message, Id>(
                                 .expect("poisoned")
                                 .as_ref()
                                 .map(|arc| {
-                                    tracing::debug!("Using pairing config for BitBox02 {}", id_);
+                                    log::debug!("Using pairing config for BitBox02 {}", id_);
                                     Box::new(ArcNoiseConfig(arc.clone())) as Box<dyn NoiseConfig>
                                 });
-                        tracing::debug!(
+                        log::debug!(
                             "handle_bitbox02[{}]: pairing_config available={}",
                             id_,
                             config.is_some()
@@ -1431,30 +1428,26 @@ fn handle_bitbox02<Message, Id>(
                         config
                     };
 
-                    tracing::debug!("handle_bitbox02[{}]: calling PairingBitbox02::connect", id_);
+                    log::debug!("handle_bitbox02[{}]: calling PairingBitbox02::connect", id_);
                     match PairingBitbox02::connect(device, pairing_config) {
                         Ok(pairing_device) => {
                             let pairing_code =
                                 pairing_device.pairing_code().map(|s| s.replace('\n', " "));
-                            tracing::debug!(
+                            log::debug!(
                                 "handle_bitbox02[{}]: connected, pairing_code={}",
                                 id_,
                                 pairing_code.as_deref().unwrap_or("none")
                             );
                             if let Some(ref code) = pairing_code {
-                                tracing::info!(
-                                    "BitBox02 {} requires pairing with code: {}",
-                                    id_,
-                                    code
-                                );
+                                log::info!("BitBox02 {} requires pairing with code: {}", id_, code);
                             } else {
-                                tracing::debug!("BitBox02 {} connected (already paired)", id_);
+                                log::debug!("BitBox02 {} connected (already paired)", id_);
                             }
                             let locked_device = Arc::new(Mutex::new(Some(LockedDevice::BitBox02(
                                 Box::new(pairing_device),
                             ))));
 
-                            tracing::debug!(
+                            log::debug!(
                                 "handle_bitbox02[{}]: inserting Locked device into map",
                                 id_
                             );
@@ -1469,10 +1462,10 @@ fn handle_bitbox02<Message, Id>(
                             );
                             let _ = sender.send(SigningDeviceMsg::Update.into());
 
-                            tracing::debug!("handle_bitbox02[{}]: taking device for unlock", id_);
+                            log::debug!("handle_bitbox02[{}]: taking device for unlock", id_);
                             let bb = locked_device.lock().expect("poisoned").take();
                             if let Some(LockedDevice::BitBox02(bb)) = bb {
-                                tracing::trace!(
+                                log::trace!(
                                     "handle_bitbox02[{}]: calling handle_locked_bitbox",
                                     id_
                                 );
@@ -1482,13 +1475,13 @@ fn handle_bitbox02<Message, Id>(
                             }
                         }
                         Err(e) => {
-                            tracing::error!("Failed to connect to BitBox02 {}: {}", id_, e);
+                            log::error!("Failed to connect to BitBox02 {}: {}", id_, e);
                         }
                     }
                 });
                 handles.insert(id, jh);
             } else {
-                tracing::trace!("handle_bitbox02: failed to open HID device {}", id);
+                log::trace!("handle_bitbox02: failed to open HID device {}", id);
             }
         }
     }
@@ -1505,11 +1498,11 @@ fn handle_locked_bitbox<Message, Id>(
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::debug!("Waiting for BitBox02 {} pairing confirmation", id);
+    log::debug!("Waiting for BitBox02 {} pairing confirmation", id);
     match unlock_bitbox(id.clone(), network, device, sender.clone()) {
         Ok(bb) => {
-            tracing::info!("BitBox02 {} successfully unlocked", id);
-            tracing::debug!(
+            log::info!("BitBox02 {} successfully unlocked", id);
+            log::debug!(
                 "handle_locked_bitbox[{}]: inserting unlocked device into map",
                 id
             );
@@ -1517,8 +1510,8 @@ fn handle_locked_bitbox<Message, Id>(
             let _ = sender.send(SigningDeviceMsg::Update.into());
         }
         Err(e) => {
-            tracing::error!("Failed to unlock BitBox02 {}: {}", id, e);
-            tracing::debug!(
+            log::error!("Failed to unlock BitBox02 {}: {}", id, e);
+            log::debug!(
                 "handle_locked_bitbox[{}]: removing device from map after unlock failure",
                 id
             );
@@ -1550,52 +1543,52 @@ fn handle_coldcard<Message, Id>(
         id.replace("\"", "")
     }
 
-    tracing::trace!("handle_coldcard: processing {} device(s)", list.len());
+    log::trace!("handle_coldcard: processing {} device(s)", list.len());
 
     if !list.is_empty() {
-        tracing::debug!("Found {} potential Coldcard device(s)", list.len());
+        log::debug!("Found {} potential Coldcard device(s)", list.len());
     }
 
     let connected_ids: Vec<_> = list.iter().map(|d| coldcard_id(d)).collect();
-    tracing::trace!("handle_coldcard: connected_ids={:?}", connected_ids);
+    log::trace!("handle_coldcard: connected_ids={:?}", connected_ids);
     cleanup_disconnected(sender, handles, &devices, &connected_ids, "coldcard-");
 
     for device_info in list {
         if crate::coldcard::is_coldcard(device_info) {
             let id = coldcard_id(device_info);
-            tracing::trace!(
+            log::trace!(
                 "handle_coldcard: checking device {} (vid={}, pid={})",
                 id,
                 device_info.vendor_id(),
                 device_info.product_id()
             );
             if !should_poll(handles, &devices, &id) {
-                tracing::debug!("handle_coldcard: skipping {} (should_poll=false)", id);
+                log::debug!("handle_coldcard: skipping {} (should_poll=false)", id);
                 continue;
             }
 
             if let Some(sn) = device_info.serial_number() {
-                tracing::debug!("handle_coldcard: device {} has serial_number={}", id, sn);
+                log::debug!("handle_coldcard: device {} has serial_number={}", id, sn);
                 let devices = devices.clone();
                 let id_clone = id.clone();
                 let sn = sn.to_string();
-                tracing::debug!("handle_coldcard: opening Coldcard with serial {}", sn);
+                log::debug!("handle_coldcard: opening Coldcard with serial {}", sn);
                 if let Ok((cc, _)) =
                     coldcard::api::Coldcard::open(AsRefWrap { inner: hid }, &sn, None)
                 {
-                    tracing::trace!("handle_coldcard: spawning task for device {}", id);
+                    log::trace!("handle_coldcard: spawning task for device {}", id);
                     let sender = sender.clone();
                     let jh = thread::spawn(move || {
-                        tracing::debug!("Connecting to Coldcard device {}", id_clone);
+                        log::debug!("Connecting to Coldcard device {}", id_clone);
                         let device: Arc<dyn HWI + Send + Sync> =
                             Arc::new(coldcard::Coldcard::from(cc));
-                        tracing::debug!(
+                        log::debug!(
                             "handle_coldcard[{}]: getting fingerprint and version",
                             id_clone
                         );
                         match (device.get_master_fingerprint(), device.get_version()) {
                             (Ok(fingerprint), Ok(version)) => {
-                                tracing::debug!(
+                                log::debug!(
                                     "Coldcard {} detected (version: {}, fingerprint: {})",
                                     id_clone,
                                     version,
@@ -1608,7 +1601,7 @@ fn handle_coldcard<Message, Id>(
                                         patch: 1,
                                         prerelease: None,
                                     }) {
-                                    tracing::debug!(
+                                    log::debug!(
                                         "handle_coldcard[{}]: version supported, creating Supported device",
                                         id_clone
                                     );
@@ -1622,7 +1615,7 @@ fn handle_coldcard<Message, Id>(
                                         _phantom: PhantomData,
                                     })
                                 } else {
-                                    tracing::debug!("Coldcard {} has unsupported version {} (requires >= 6.2.1)",
+                                    log::debug!("Coldcard {} has unsupported version {} (requires >= 6.2.1)",
                                         id_clone, version);
                                     SigningDevice::Unsupported {
                                         id: id_clone.clone(),
@@ -1633,7 +1626,7 @@ fn handle_coldcard<Message, Id>(
                                         },
                                     }
                                 };
-                                tracing::debug!(
+                                log::debug!(
                                     "handle_coldcard[{}]: inserting device into map",
                                     id_clone
                                 );
@@ -1641,8 +1634,8 @@ fn handle_coldcard<Message, Id>(
                                 let _ = sender.send(SigningDeviceMsg::Update.into());
                             }
                             (Err(e1), Err(e2)) => {
-                                tracing::error!("Failed to connect to coldcard {}", id_clone);
-                                tracing::debug!(
+                                log::error!("Failed to connect to coldcard {}", id_clone);
+                                log::debug!(
                                     "handle_coldcard[{}]: fingerprint error={}, version error={}",
                                     id_clone,
                                     e1,
@@ -1650,32 +1643,28 @@ fn handle_coldcard<Message, Id>(
                                 );
                             }
                             (Err(e), _) => {
-                                tracing::error!("Failed to connect to coldcard {}", id_clone);
-                                tracing::debug!(
+                                log::error!("Failed to connect to coldcard {}", id_clone);
+                                log::debug!(
                                     "handle_coldcard[{}]: fingerprint error={}",
                                     id_clone,
                                     e
                                 );
                             }
                             (_, Err(e)) => {
-                                tracing::error!("Failed to connect to coldcard {}", id_clone);
-                                tracing::debug!(
-                                    "handle_coldcard[{}]: version error={}",
-                                    id_clone,
-                                    e
-                                );
+                                log::error!("Failed to connect to coldcard {}", id_clone);
+                                log::debug!("handle_coldcard[{}]: version error={}", id_clone, e);
                             }
                         }
                     });
                     handles.insert(id, jh);
                 } else {
-                    tracing::debug!(
+                    log::debug!(
                         "handle_coldcard: failed to open Coldcard with serial {}",
                         sn
                     );
                 }
             } else {
-                tracing::trace!("handle_coldcard: device {} has no serial number", id);
+                log::trace!("handle_coldcard: device {} has no serial number", id);
             }
         }
     }
@@ -1702,39 +1691,39 @@ fn handle_ledger<Message, Id>(
         id.replace("\"", "")
     }
 
-    tracing::trace!("handle_ledger: processing {} device(s)", list.len());
+    log::trace!("handle_ledger: processing {} device(s)", list.len());
 
     if !list.is_empty() {
-        tracing::trace!("Found {} Ledger device(s)", list.len());
+        log::trace!("Found {} Ledger device(s)", list.len());
     }
 
     let connected_ids: Vec<_> = list.iter().map(|d| ledger_id(d)).collect();
-    tracing::trace!("handle_ledger: connected_ids={:?}", connected_ids);
+    log::trace!("handle_ledger: connected_ids={:?}", connected_ids);
     cleanup_disconnected(sender, handles, &devices, &connected_ids, "ledger-");
 
     for detected in list {
         let id = ledger_id(detected);
-        tracing::trace!(
+        log::trace!(
             "handle_ledger: checking device {} (vid={}, pid={})",
             id,
             detected.vendor_id(),
             detected.product_id()
         );
         if !should_poll(handles, &devices, &id) {
-            tracing::debug!("handle_ledger: skipping {} (should_poll=false)", id);
+            log::debug!("handle_ledger: skipping {} (should_poll=false)", id);
             continue;
         }
 
         // Connect synchronously first
-        tracing::trace!("handle_ledger: connecting to device {}", id);
+        log::trace!("handle_ledger: connecting to device {}", id);
         match ledger::Ledger::<ledger::TransportHID>::connect(hid, detected) {
             Ok(device) => {
-                tracing::trace!("handle_ledger: spawning task for device {}", id);
+                log::trace!("handle_ledger: spawning task for device {}", id);
                 let devices = devices.clone();
                 let id_clone = id.clone();
                 let sender_ = sender.clone();
                 let jh = thread::spawn(move || {
-                    tracing::trace!("handle_ledger[{}]: calling handle_ledger_device", id_clone);
+                    log::trace!("handle_ledger[{}]: calling handle_ledger_device", id_clone);
                     match handle_ledger_device(id_clone.clone(), device, sender_) {
                         Ok(hw) => {
                             if let SigningDevice::Supported(SupportedDevice {
@@ -1743,27 +1732,24 @@ fn handle_ledger<Message, Id>(
                                 ..
                             }) = &hw
                             {
-                                tracing::info!(
+                                log::info!(
                                     "Ledger {} connected (version: {:?}, fingerprint: {})",
                                     id_clone,
                                     version,
                                     fingerprint
                                 );
-                                tracing::debug!(
+                                log::debug!(
                                     "handle_ledger[{}]: created Supported device",
                                     id_clone
                                 );
                             } else if let SigningDevice::Unsupported { reason, .. } = &hw {
-                                tracing::debug!("Ledger {} is unsupported: {:?}", id_clone, reason);
+                                log::debug!("Ledger {} is unsupported: {:?}", id_clone, reason);
                             }
-                            tracing::debug!(
-                                "handle_ledger[{}]: inserting device into map",
-                                id_clone
-                            );
+                            log::debug!("handle_ledger[{}]: inserting device into map", id_clone);
                             devices.lock().expect("poisoned").insert(id_clone, hw);
                         }
                         Err(e) => {
-                            tracing::debug!("Failed to initialize Ledger {}: {:?}", id_clone, e);
+                            log::debug!("Failed to initialize Ledger {}: {:?}", id_clone, e);
                         }
                     }
                 });
@@ -1771,10 +1757,10 @@ fn handle_ledger<Message, Id>(
                 let _ = sender.send(SigningDeviceMsg::Update.into());
             }
             Err(HWIError::DeviceNotFound) => {
-                tracing::trace!("handle_ledger: device {} returned DeviceNotFound", id);
+                log::trace!("handle_ledger: device {} returned DeviceNotFound", id);
             }
             Err(e) => {
-                tracing::trace!("handle_ledger: device {} connect error: {:?}", id, e);
+                log::trace!("handle_ledger: device {} connect error: {:?}", id, e);
             }
         }
     }
@@ -1790,27 +1776,27 @@ where
     Message: From<SigningDeviceMsg<Id>> + Send + Clone + 'static,
     Id: Send + Clone + 'static,
 {
-    tracing::debug!(
+    log::debug!(
         "handle_ledger_device[{}]: getting fingerprint and version",
         id
     );
     match (device.get_master_fingerprint(), device.get_version()) {
         (Ok(fingerprint), Ok(version)) => {
-            tracing::debug!(
+            log::debug!(
                 "handle_ledger_device[{}]: fingerprint={}, version={}",
                 id,
                 fingerprint,
                 version
             );
             let supported = ledger_version_supported(&version);
-            tracing::debug!(
+            log::debug!(
                 "handle_ledger_device[{}]: version {} supported={}",
                 id,
                 version,
                 supported
             );
             if supported {
-                tracing::debug!("handle_ledger_device[{}]: returning Supported", id);
+                log::debug!("handle_ledger_device[{}]: returning Supported", id);
                 Ok(SigningDevice::Supported(SupportedDevice {
                     id,
                     kind: device.device_kind(),
@@ -1821,7 +1807,7 @@ where
                     _phantom: PhantomData,
                 }))
             } else {
-                tracing::debug!(
+                log::debug!(
                     "handle_ledger_device[{}]: returning Unsupported (version too old)",
                     id
                 );
@@ -1836,7 +1822,7 @@ where
             }
         }
         (Err(e1), Err(e2)) => {
-            tracing::debug!(
+            log::debug!(
                 "handle_ledger_device[{}]: fingerprint error={}, version error={}, returning Unsupported (AppIsNotOpen)",
                 id,
                 e1,
@@ -1850,7 +1836,7 @@ where
             })
         }
         (Err(e), _) => {
-            tracing::debug!(
+            log::debug!(
                 "handle_ledger_device[{}]: fingerprint error={}, returning Unsupported (AppIsNotOpen)",
                 id,
                 e
@@ -1863,7 +1849,7 @@ where
             })
         }
         (_, Err(e)) => {
-            tracing::debug!(
+            log::debug!(
                 "handle_ledger_device[{}]: version error={}, returning Unsupported (AppIsNotOpen)",
                 id,
                 e
