@@ -15,7 +15,7 @@ serde_json.workspace = true
 bwk-error.workspace = true
 log.workspace = true
 fs2 = "0.4"
-rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+rusqlite = { version = "0.33", features = ["bundled"], optional = true }
 
 [dev-dependencies]
 temp-dir.workspace = true
