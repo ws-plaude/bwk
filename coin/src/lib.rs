@@ -325,3 +325,49 @@ mod tests {
         assert_eq!(bip32_coin(ScriptBuf::new()).source(), CoinSourceKind::Other);
     }
 }
+
+/// Trait for managing change address index tip.
+/// Implemented by wallet types that need to track the next change index.
+/// Called by RecipientProvider implementations when deriving new change addresses.
+pub trait ChangeTip {
+    fn next_index(&mut self) -> u32;
+}
+
+pub trait CoinSource {
+    fn spendable_coins(&self) -> Vec<Coin>;
+    #[cfg(feature = "test")]
+    fn add_coin(&mut self, _coin: Coin) {}
+    #[cfg(feature = "test")]
+    fn remove_coin(&mut self, _coin: &Coin) {}
+}
+
+#[cfg(feature = "test")]
+impl CoinSource for std::collections::BTreeMap<miniscript::bitcoin::OutPoint, Coin> {
+    fn spendable_coins(&self) -> Vec<Coin> {
+        self.values().cloned().collect()
+    }
+
+    fn add_coin(&mut self, coin: Coin) {
+        self.insert(coin.outpoint, coin);
+    }
+
+    fn remove_coin(&mut self, coin: &Coin) {
+        self.remove(&coin.outpoint);
+    }
+}
+
+/// Estimate the satisfaction size for an input, returning the result
+/// in weight units (WU).
+/// Note: The output of this function represent the worst case scenario.
+pub fn max_input_satisfaction_size(descriptor: &Descriptor<DescriptorPublicKey>) -> usize {
+    descriptor
+        .clone()
+        .into_single_descriptors()
+        .expect("multikey")
+        .first()
+        .expect("multikey")
+        .clone()
+        .max_weight_to_satisfy()
+        .expect("invalid descriptor")
+        .to_wu() as usize
+}

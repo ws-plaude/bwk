@@ -1,18 +1,12 @@
 #![allow(clippy::uninlined_format_args)]
 
 pub mod account;
-pub mod address_store;
-pub mod coin_store;
 pub mod config;
-pub mod header_store;
-pub mod header_validator;
 pub mod history;
-pub mod label_store;
 #[cfg(any(feature = "logger", feature = "test", test))]
 pub mod log;
 pub mod profile;
 pub mod sync;
-pub mod tx_store;
 
 pub use profile::{RamProfile, StorageProfile};
 pub use sync::SyncEstimator;
@@ -35,3 +29,12 @@ pub use bwk_sign;
 pub use bwk_tx;
 pub use bwk_utils;
 pub use miniscript;
+
+pub use bwk_electrum::address_store;
+pub use bwk_electrum::coin_store;
+pub use bwk_electrum::header_store;
+pub use bwk_electrum::header_validator;
+pub use bwk_electrum::label_store;
+
+pub use bwk_electrum::tx_store;
+pub use bwk_electrum::{coin_state, config as scanner_config, notification};

@@ -14,6 +14,14 @@ exclude = ["tests/**"]
 crate-type = ["rlib", "cdylib", "staticlib"]
 doctest = false
 
+[features]
+default = []
+# Exposes the synthetic-chain constructors so downstream crates can unit-test
+# against a scanner.
+test = []
+# Adds the silent-payments notification variant.
+sp = []
+
 [dependencies]
 miniscript = { workspace = true, features = ["serde", "base64"] }
 log.workspace = true
@@ -22,6 +30,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 hex-conservative.workspace = true
 bwk-backoff.workspace = true
+bwk-coin.workspace = true
+bwk-descriptor.workspace = true
+bwk-persist.workspace = true
 bwk-utils.workspace = true
 bwk-error.workspace = true
 # Android uses native-tls's openssl backend, which looks for certs at the
@@ -31,4 +42,7 @@ native-tls = { workspace = true, features = ["vendored"] }
 
 [dev-dependencies]
 hex_lit.workspace = true
+temp-dir.workspace = true
+bwk-sign.workspace = true
+bwk-tx.workspace = true
 electrsd = {version = "0.29.0", features = []}

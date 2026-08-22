@@ -22,10 +22,8 @@
 //! reported-height change back to `Inclusion::Unconfirmed` and re-claims it
 //! at the new height.
 
+use crate::client::{Client, Error as ClientError, HeaderError, HeaderRequest, HeaderResponse};
 use crate::header_validator::{self, expected_genesis, Error as ValidatorError};
-use bwk_electrum::client::{
-    Client, Error as ClientError, HeaderError, HeaderRequest, HeaderResponse,
-};
 use bwk_persist::{
     HeaderBackend, NoopBackend, PersistError, PersistenceBackend, RamStore, Store,
     HEADERS_STORE_KEY,
@@ -444,7 +442,7 @@ where
 
     #[cfg(any(test, feature = "test"))]
     #[allow(dead_code)]
-    pub(crate) fn set_validation_state_for_test(&self, state: HeaderValidationState) {
+    pub fn set_validation_state_for_test(&self, state: HeaderValidationState) {
         self.set_validation_state(state);
     }
 

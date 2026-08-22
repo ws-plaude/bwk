@@ -339,12 +339,7 @@ impl Config {
     }
 }
 
-/// Represents the tip information for the current account.
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct Tip {
-    pub receive: u32,
-    pub change: u32,
-}
+pub use bwk_electrum::config::Tip;
 
 /// Checks if the provided descriptor string is valid.
 ///
@@ -459,5 +454,25 @@ pub mod tests {
             serialized.contains(&unique),
             "mnemonic must appear in serialized form under JSON mode (default)"
         );
+    }
+}
+
+impl Config {
+    /// The subset an [`ElectrumScanner`](bwk_electrum::scanner::ElectrumScanner)
+    /// needs. Wallet-only settings such as the mnemonic are left behind.
+    pub fn scanner(&self) -> bwk_electrum::ScannerConfig {
+        bwk_electrum::ScannerConfig {
+            data_dir: self.data_dir.clone(),
+            dir_name: self.dir_name.clone(),
+            account: self.account.clone(),
+            electrum_url: self.electrum_url.clone(),
+            electrum_port: self.electrum_port,
+            offline: self.offline,
+            network: self.network,
+            look_ahead: self.look_ahead,
+            descriptor: self.descriptor.clone(),
+            persist: self.persist,
+            persist_kind: self.persist_kind,
+        }
     }
 }

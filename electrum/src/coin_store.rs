@@ -1,10 +1,5 @@
+use bwk_coin::{self as coin, max_input_satisfaction_size, Coin, CoinSource, CoinStatus, KeyChain};
 use bwk_descriptor::derivator::SpkDerivator;
-use bwk_tx::{
-    coin::{self, KeyChain},
-    transaction::max_input_satisfaction_size,
-    tx_builder::CoinSource,
-    Coin, CoinStatus,
-};
 use miniscript::{
     bitcoin::{self, address::NetworkUnchecked, OutPoint, ScriptBuf, Sequence, Txid},
     Descriptor, DescriptorPublicKey,
@@ -16,13 +11,14 @@ use std::{
 };
 
 use crate::{
-    account::{CoinState, Notification},
     address_store::{AddressEntry, AddressStatus, AddressStore, AddressTip},
-    config::Config,
+    coin_state::CoinState,
     header_store::HeaderStore,
     label_store::{LabelKey, LabelStore},
-    profile::{DefaultBackend, RamProfile, StorageProfile},
+    notification::Notification,
+    profile::{DefaultBackend, RamProfile, ScanProfile},
     tx_store::{Inclusion, InputMetadata, OutputMetadata, TxEntry, TxStore},
+    ScannerConfig,
 };
 
 impl From<&Inclusion> for CoinStatus {
@@ -55,17 +51,15 @@ pub struct Payment {
     pub timestamp: Option<u64>,
 }
 
-pub struct CoinStoreSource<P: StorageProfile = RamProfile<DefaultBackend>>(
-    Arc<Mutex<CoinStore<P>>>,
-);
+pub struct CoinStoreSource<P: ScanProfile = RamProfile<DefaultBackend>>(Arc<Mutex<CoinStore<P>>>);
 
-impl<P: StorageProfile> CoinStoreSource<P> {
+impl<P: ScanProfile> CoinStoreSource<P> {
     pub fn new(store: Arc<Mutex<CoinStore<P>>>) -> Self {
         Self(store)
     }
 }
 
-impl<P: StorageProfile> CoinSource for CoinStoreSource<P> {
+impl<P: ScanProfile> CoinSource for CoinStoreSource<P> {
     fn spendable_coins(&self) -> Vec<Coin> {
         self.0
             .lock()
@@ -84,7 +78,7 @@ impl<P: StorageProfile> CoinSource for CoinStoreSource<P> {
 /// TxStore update and acts as a cache for coins. It maintains mappings
 /// of outpoints to coin entries and tracks the history of script public
 /// keys (SPKs).
-pub struct CoinStore<P: StorageProfile = RamProfile<DefaultBackend>> {
+pub struct CoinStore<P: ScanProfile = RamProfile<DefaultBackend>> {
     store: BTreeMap<OutPoint, CoinEntry>,
     label_store: Arc<Mutex<LabelStore<P>>>,
     spk_to_outpoint: BTreeMap<ScriptBuf, HashSet<OutPoint>>,
@@ -94,7 +88,7 @@ pub struct CoinStore<P: StorageProfile = RamProfile<DefaultBackend>> {
     updates: Vec<Update>,
     derivator: SpkDerivator,
     notification: mpsc::Sender<Notification>,
-    config: Config,
+    config: ScannerConfig,
     /// Pending claims indexed by server-reported height. A txid lands
     /// here when the server reports it at height H but the HeaderStore
     /// doesn't yet have a header at H; the next CTA resolves it.
@@ -208,7 +202,7 @@ impl SpkHistory {
     }
 }
 
-impl<P: StorageProfile> CoinStore<P> {
+impl<P: ScanProfile> CoinStore<P> {
     /// Creates a new instance of `CoinStore`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -220,7 +214,7 @@ impl<P: StorageProfile> CoinStore<P> {
         look_ahead: u32,
         tx_store: TxStore<P>,
         label_store: Arc<Mutex<LabelStore<P>>>,
-        config: Config,
+        config: ScannerConfig,
         account_store: Arc<Mutex<P::AccountStore>>,
     ) -> Self {
         let derivator = SpkDerivator::new(descriptor, network).unwrap();
@@ -627,7 +621,7 @@ impl<P: StorageProfile> CoinStore<P> {
                         status,
                         label,
                         satisfaction_size: satisfaction as u64,
-                        spend_info: bwk_tx::CoinSpendInfo::Bip32 {
+                        spend_info: bwk_coin::CoinSpendInfo::Bip32 {
                             coin_path: (addr.account(), addr.index()),
                             descriptor: descriptor.clone(),
                             secret_key: None,
@@ -905,7 +899,7 @@ impl<P: StorageProfile> CoinStore<P> {
 
     /// Queues a pending claim, to be promoted by a future CTA once the
     /// HeaderStore has a header at that height.
-    pub(crate) fn insert_pending_claim(&mut self, claim: ClaimAt) {
+    pub fn insert_pending_claim(&mut self, claim: ClaimAt) {
         self.pending_claims
             .entry(claim.height)
             .or_default()
@@ -935,14 +929,14 @@ impl<P: StorageProfile> CoinStore<P> {
     }
 
     /// Snapshot of the pending-claims queue.
-    pub(crate) fn pending_claims_snapshot(&self) -> BTreeMap<u32, BTreeSet<Txid>> {
+    pub fn pending_claims_snapshot(&self) -> BTreeMap<u32, BTreeSet<Txid>> {
         self.pending_claims.clone()
     }
 
     /// Clear `txid` from the in-flight merkle-fetch set. Called when a
     /// `TxMerkle` response lands (the fetch resolved), so a later CTA can
     /// re-queue it if the entry is still `ConfirmedUnverified`.
-    pub(crate) fn clear_merkle_in_flight(&mut self, txid: &Txid) {
+    pub fn clear_merkle_in_flight(&mut self, txid: &Txid) {
         self.merkle_in_flight.remove(txid);
     }
 
@@ -1394,7 +1388,7 @@ impl CoinEntry {
     /// Returns `None` for non-descriptor coins (e.g., Silent Payment coins).
     pub fn deriv(&self) -> Option<(KeyChain, u32)> {
         match &self.coin.spend_info {
-            bwk_tx::CoinSpendInfo::Bip32 { coin_path, .. } => Some(*coin_path),
+            bwk_coin::CoinSpendInfo::Bip32 { coin_path, .. } => Some(*coin_path),
             #[allow(unreachable_patterns)]
             _ => None,
         }
@@ -1420,7 +1414,7 @@ impl CoinEntry {
     /// Panics for non-descriptor coins.
     pub fn rust_address(&self) -> AddressEntry {
         let (account, index) = match &self.coin.spend_info {
-            bwk_tx::CoinSpendInfo::Bip32 { coin_path, .. } => *coin_path,
+            bwk_coin::CoinSpendInfo::Bip32 { coin_path, .. } => *coin_path,
             #[allow(unreachable_patterns)]
             _ => panic!("rust_address not supported for non-descriptor coins"),
         };
@@ -1450,9 +1444,9 @@ mod tests {
     //! drives funding/spending txs through the in-memory
     //! [`TxStore`].
     use super::*;
-    use crate::config::Config;
-    use bip39::Mnemonic;
+    use crate::ScannerConfig;
     use bwk_descriptor::{descriptor::ScriptType, wpkh_path};
+    use bwk_sign::bip39::Mnemonic;
     use bwk_sign::HotSigner;
     use bwk_utils::test::{funding_tx, spending_tx};
     use miniscript::bitcoin::bip32::ChildNumber;
@@ -1466,16 +1460,14 @@ mod tests {
         let xpub = signer.xpub(&path);
         let derivator = SpkDerivator::new_wpkh(xpub, network).unwrap();
         let descriptor = derivator.descriptor();
-        let dummy_config = Config::new(
-            Some(mnemo.to_string()),
-            "addr_history_test".into(),
-            network,
-            ScriptType::Segwit(ChildNumber::from_hardened_idx(0).unwrap()),
+        let dummy_config = ScannerConfig::new(
+            descriptor.clone(),
             std::path::PathBuf::default(),
             String::new(),
+            "addr_history_test".into(),
+            network,
             false,
-        )
-        .unwrap();
+        );
 
         let (notif_sender, _notif_recv) = mpsc::channel();
         let tx_store = TxStore::new();

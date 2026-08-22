@@ -1,6 +1,6 @@
+use bwk_coin::{ChangeTip, KeyChain};
 use bwk_descriptor::derivator::SpkDerivator;
 use bwk_persist::Store;
-use bwk_tx::{coin::KeyChain, tx_builder::ChangeTip};
 use miniscript::bitcoin::{self, address::NetworkUnchecked, Script, ScriptBuf, Txid};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -9,9 +9,9 @@ use std::{
 };
 
 use crate::{
-    account::Notification,
-    config::{Config, Tip},
-    profile::{DefaultBackend, RamProfile, StorageProfile},
+    config::{ScannerConfig, Tip},
+    notification::Notification,
+    profile::{DefaultBackend, RamProfile, ScanProfile},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
@@ -33,23 +33,23 @@ pub struct AddressTip {
     pub change: u32,
 }
 
-pub struct ChangeTipUpdater<P: StorageProfile = RamProfile<DefaultBackend>>(
+pub struct ChangeTipUpdater<P: ScanProfile = RamProfile<DefaultBackend>>(
     Arc<Mutex<AddressStore<P>>>,
 );
 
-impl<P: StorageProfile> Clone for ChangeTipUpdater<P> {
+impl<P: ScanProfile> Clone for ChangeTipUpdater<P> {
     fn clone(&self) -> Self {
         ChangeTipUpdater(self.0.clone())
     }
 }
 
-impl<P: StorageProfile> ChangeTipUpdater<P> {
+impl<P: ScanProfile> ChangeTipUpdater<P> {
     pub fn new(store: Arc<Mutex<AddressStore<P>>>) -> Self {
         ChangeTipUpdater(store)
     }
 }
 
-impl<P: StorageProfile> ChangeTip for ChangeTipUpdater<P> {
+impl<P: ScanProfile> ChangeTip for ChangeTipUpdater<P> {
     fn next_index(&mut self) -> u32 {
         let mut store = self.0.lock().expect("poisoned");
         store.change_generated_tip += 1;
@@ -73,7 +73,7 @@ impl<P: StorageProfile> ChangeTip for ChangeTipUpdater<P> {
 ///   tips changes.
 /// - `tx_listener`: Optional channel for sending address tip changes.
 /// - `look_ahead`: Number of addresses to generate ahead of the current tip.
-pub struct AddressStore<P: StorageProfile = RamProfile<DefaultBackend>> {
+pub struct AddressStore<P: ScanProfile = RamProfile<DefaultBackend>> {
     store: BTreeMap<ScriptBuf, AddressEntry>,
     recv_generated_tip: u32,
     change_generated_tip: u32,
@@ -81,11 +81,11 @@ pub struct AddressStore<P: StorageProfile = RamProfile<DefaultBackend>> {
     notification: mpsc::Sender<Notification>,
     tx_listener: Option<mpsc::Sender<AddressTip>>,
     look_ahead: u32,
-    config: Config,
+    config: ScannerConfig,
     account_store: Arc<Mutex<P::AccountStore>>,
 }
 
-impl<P: StorageProfile> std::fmt::Debug for AddressStore<P> {
+impl<P: ScanProfile> std::fmt::Debug for AddressStore<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AddressStore")
             .field("store_len", &self.store.len())
@@ -106,7 +106,7 @@ impl AddressStore<RamProfile<DefaultBackend>> {
         recv_tip: u32,
         change_tip: u32,
         look_ahead: u32,
-        config: Config,
+        config: ScannerConfig,
     ) -> Self {
         use bwk_persist::{NoopBackend, RamStore};
         use std::sync::Arc;
@@ -129,7 +129,7 @@ impl AddressStore<RamProfile<DefaultBackend>> {
     }
 }
 
-impl<P: StorageProfile> AddressStore<P> {
+impl<P: ScanProfile> AddressStore<P> {
     /// Creates a new `AddressStore` wrapping the given account-store
     /// `Arc<Mutex<_>>` (used to persist the `Tip` singleton).
     #[allow(clippy::too_many_arguments)]
@@ -139,7 +139,7 @@ impl<P: StorageProfile> AddressStore<P> {
         recv_tip: u32,
         change_tip: u32,
         look_ahead: u32,
-        config: Config,
+        config: ScannerConfig,
         account_store: Arc<Mutex<P::AccountStore>>,
     ) -> Self {
         let mut store = Self {
@@ -657,18 +657,16 @@ mod tests {
         SpkDerivator::new_tr(xpub, nw).unwrap()
     }
 
-    fn test_config(descriptor: Descriptor<DescriptorPublicKey>) -> Config {
+    fn test_config(descriptor: Descriptor<DescriptorPublicKey>) -> ScannerConfig {
         let tmp = TempDir::new().expect("tempdir");
-        Config::new(
-            None, // no mnemonic needed with ScriptType::Descriptor
-            "test".to_string(),
-            Network::Regtest,
-            ScriptType::Descriptor(Box::new(descriptor)),
+        ScannerConfig::new(
+            descriptor,
             tmp.path().to_path_buf(),
             "test".to_string(),
+            "test".to_string(),
+            Network::Regtest,
             false, // don't persist
         )
-        .expect("valid config")
     }
 
     #[test]

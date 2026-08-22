@@ -5,6 +5,7 @@ use crate::{
     Coin, Fees, Recipient, RecipientProvider, TransactionResult, TxTemplate,
 };
 use bitcoin::Psbt;
+pub use bwk_coin::{ChangeTip, CoinSource};
 
 #[cfg(feature = "test")]
 use {
@@ -25,36 +26,6 @@ use {
     miniscript::{Descriptor, DescriptorPublicKey},
     std::collections::BTreeMap,
 };
-
-/// Trait for managing change address index tip.
-/// Implemented by wallet types that need to track the next change index.
-/// Called by RecipientProvider implementations when deriving new change addresses.
-pub trait ChangeTip {
-    fn next_index(&mut self) -> u32;
-}
-
-pub trait CoinSource {
-    fn spendable_coins(&self) -> Vec<Coin>;
-    #[cfg(feature = "test")]
-    fn add_coin(&mut self, _coin: Coin) {}
-    #[cfg(feature = "test")]
-    fn remove_coin(&mut self, _coin: &Coin) {}
-}
-
-#[cfg(feature = "test")]
-impl CoinSource for BTreeMap<OutPoint, Coin> {
-    fn spendable_coins(&self) -> Vec<Coin> {
-        self.values().cloned().collect()
-    }
-
-    fn add_coin(&mut self, coin: Coin) {
-        self.insert(coin.outpoint, coin);
-    }
-
-    fn remove_coin(&mut self, coin: &Coin) {
-        self.remove(&coin.outpoint);
-    }
-}
 
 pub struct TxBuilder {
     change_provider: Box<dyn RecipientProvider>,
@@ -387,7 +358,7 @@ impl TxBuilder {
     }
 
     pub fn mark_tx_mined(&mut self) {
-        use crate::transaction::max_input_satisfaction_size;
+        use crate::coin::max_input_satisfaction_size;
 
         let this_descriptor = self.derivator().descriptor();
 
@@ -485,7 +456,7 @@ impl TxBuilder {
         self.derivator().receive_at(index)
     }
     pub fn fund_with_bitcoind(&mut self, bitcoind: &mut corepc_node::Client, amount: u64) -> Coin {
-        use crate::transaction::max_input_satisfaction_size;
+        use crate::coin::max_input_satisfaction_size;
 
         let index: u8 = random();
         let addr = self.receive_address_at(index as u32);
@@ -576,9 +547,7 @@ pub mod test {
     }
 
     pub fn receive_coin(amount: u64, derivator: &SpkDerivator, index: u32) -> Coin {
-        use crate::{
-            coin::KeyChain, transaction::max_input_satisfaction_size, CoinSpendInfo, CoinStatus,
-        };
+        use crate::{coin::max_input_satisfaction_size, coin::KeyChain, CoinSpendInfo, CoinStatus};
 
         let spk = derivator.receive_at(index).script_pubkey();
         let txout = TxOut {
@@ -714,9 +683,7 @@ pub mod test {
     }
 
     pub fn funding_coin(amount: u64, derivator: &SpkDerivator, index: u32) -> Coin {
-        use crate::{
-            coin::KeyChain, transaction::max_input_satisfaction_size, CoinSpendInfo, CoinStatus,
-        };
+        use crate::{coin::max_input_satisfaction_size, coin::KeyChain, CoinSpendInfo, CoinStatus};
 
         let spk = derivator.receive_at(index).script_pubkey();
         let descriptor = derivator.descriptor();

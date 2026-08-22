@@ -32,6 +32,7 @@ env_logger = { workspace = true, optional = true }
 bip39 = { workspace = true, features = ["serde", "rand"] }
 bwk-error.workspace = true
 [dev-dependencies]
+bwk-electrum = { workspace = true, features = ["test"] }
 env_logger = { workspace = true }
 home.workspace = true
 bwk-persist = { workspace = true, features = ["test"] }
@@ -44,10 +45,10 @@ libc.workspace = true
 
 [features]
 default = []
-sp = []
+sp = ["bwk-electrum/sp"]
 hwi = ["bwk-sign/hwi"]
 sqlite = ["bwk-persist/sqlite"]
-test = ["bwk-utils/test", "bwk-sign/test", "bwk-tx/test", "bwk-persist/test", "dep:env_logger"]
+test = ["bwk-electrum/test", "bwk-utils/test", "bwk-sign/test", "bwk-tx/test", "bwk-persist/test", "dep:env_logger"]
 # Installs env_logger through `log::Logger`. Off by default: a consumer with its
 # own logger would otherwise pull env_logger and its timestamp/colour stack.
 logger = ["dep:env_logger"]

@@ -41,171 +41,13 @@ pub enum AddrAccount {
     Change,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// `confirmed_*` includes `ConfirmedUnverified` coins: confirmed on-chain,
-/// SPV proof still pending.
-pub struct CoinState {
-    pub coins: BTreeMap<OutPoint, Coin>,
-    pub confirmed_coins: usize,
-    pub confirmed_balance: u64,
-    pub unconfirmed_coins: usize,
-    pub unconfirmed_balance: u64,
-}
-
-/// Silent Payments notification variants (behind `sp` feature).
-#[cfg(feature = "sp")]
-#[derive(Debug, Clone)]
-pub enum SpNotification {
-    /// Scanner is starting
-    StartingScan,
-    /// Scan has started
-    ScanStarted { start: u32, end: u32 },
-    /// Scanner failed to start
-    FailStartScanning { message: String },
-    /// Scan failed during scanning
-    FailScan { message: String },
-    /// Scanner is stopping
-    StoppingScan,
-    /// Scanner has stopped
-    ScanStopped,
-    /// Receive (output) scan progress update
-    ScanReceiveProgress { current: u32, end: u32 },
-    /// Spend (input) sweep progress update
-    ScanSpendProgress { current: u32, end: u32 },
-    /// Scan completed successfully
-    ScanCompleted,
-    /// A new output was found
-    NewOutput(OutPoint),
-    /// An output was spent
-    OutputSpent(OutPoint),
-    /// Continuous mode: at chain tip, waiting for new blocks
-    WaitingForBlocks { tip_height: u32 },
-    /// Continuous mode: new block(s) detected
-    NewBlocksDetected { from_height: u32, to_height: u32 },
-}
-
-/// Notifications sent by an Account to signal events.
-#[derive(Debug)]
-pub enum Notification {
-    Electrum(TxListenerNotif),
-    AddressTipChanged,
-    CoinUpdate,
-    InvalidElectrumConfig,
-    InvalidLookAhead,
-    Stopped,
-    Error(Error),
-    /// A chain-tip-advance (CTA) pass mutated tx state in response to a
-    /// HeaderStore update.
-    HeaderStoreUpdated,
-    /// A merkle proof failed verification, or the header store itself
-    /// failed validation; the affected entry was refused promotion.
-    ValidationFailed(ValidationFailure),
-    #[cfg(feature = "sp")]
-    Sp(SpNotification),
-}
-
-#[derive(Debug, Clone)]
-pub enum ValidationFailure {
-    /// Merkle proof for a tx at a height did not verify against the header.
-    MerkleProof { txid: Txid, height: u32 },
-    /// The header store rejected its own replay validation.
-    HeaderStore(InvalidCause),
-}
-
-impl From<TxListenerNotif> for Notification {
-    fn from(value: TxListenerNotif) -> Self {
-        Notification::Electrum(value)
-    }
-}
-
-impl From<Error> for Notification {
-    fn from(value: Error) -> Self {
-        Self::Error(value)
-    }
-}
+pub use bwk_electrum::coin_state::CoinState;
 
 #[cfg(feature = "sp")]
-impl From<SpNotification> for Notification {
-    fn from(sp: SpNotification) -> Self {
-        Notification::Sp(sp)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Error {
-    CreatePool,
-    JoinPool,
-    InvalidOutPoint,
-    CoinMissing,
-    InvalidDenomination,
-    RelayMissing,
-    WrongElectrumConfig,
-    PoolMissing,
-    WrongKeyType,
-    Satisfaction,
-    HeaderStoreRestart,
-}
-
-/// Error returned when opening an [`Account`]'s stores from disk.
-#[derive(Debug)]
-pub enum OpenError {
-    /// The config carried an empty account name.
-    EmptyAccount,
-    /// The persistence backend could not be built or the store bundle
-    /// could not be read (e.g. the account directory is already locked,
-    /// or a stored blob failed to decode).
-    Persist(PersistError),
-    /// The configured Electrum endpoint could not be reached while building
-    /// the account's [`HeaderStore`]. Fails loud rather than silently
-    /// opening a worker-less store (see [`Account::build_header_store`]).
-    HeaderStore(crate::header_store::StartError),
-}
-
-impl std::fmt::Display for OpenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            OpenError::EmptyAccount => write!(f, "account name must not be empty"),
-            OpenError::Persist(e) => write!(f, "{e}"),
-            OpenError::HeaderStore(e) => write!(f, "{e}"),
-        }
-    }
-}
-
-impl std::error::Error for OpenError {}
-
-impl From<PersistError> for OpenError {
-    fn from(e: PersistError) -> Self {
-        OpenError::Persist(e)
-    }
-}
-
-impl From<crate::header_store::StartError> for OpenError {
-    fn from(e: crate::header_store::StartError) -> Self {
-        OpenError::HeaderStore(e)
-    }
-}
-
-/// Represents notifications related to transaction listeners.
-#[derive(Debug)]
-pub enum TxListenerNotif {
-    Started,
-    Connected(String),
-    Error(TxListenerError),
-    Stopped,
-}
-
-/// Errors surfaced through [`TxListenerNotif::Error`].
-#[derive(Debug, bwk_error::Error)]
-pub enum TxListenerError {
-    #[error("failed to create electrum client: {0}")]
-    Client(#[from] bwk_electrum::client::Error),
-    #[error(transparent)]
-    Coin(#[from] CoinError),
-    #[error("address store disconnected")]
-    AddressStoreDisconnected,
-    #[error("statuses store unavailable")]
-    StatusesUnavailable,
-}
+pub use bwk_electrum::notification::SpNotification;
+pub use bwk_electrum::notification::{
+    Error, Notification, OpenError, TxListenerError, TxListenerNotif, ValidationFailure,
+};
 
 /// How a freshly spawned listener thread obtains the statuses store: either
 /// handed in directly (fresh or idle account), or received from the previous
@@ -272,33 +114,6 @@ impl<P: StorageProfile> Drop for Account<P> {
         if let Some(handle) = self.tx_listener.take() {
             let _ = handle.join();
         }
-    }
-}
-
-// RAM-specific adapter for callers that already hold a `RamStores<B>`
-// bundle. Forwards to the generic `from_stores`.
-impl Account<RamProfile<DefaultBackend>> {
-    #[allow(dead_code)]
-    fn from_ram_stores(
-        config: Config,
-        header_store: Arc<HeaderStore>,
-        sender: mpsc::Sender<Notification>,
-        ram: profile::RamStores<DefaultBackend>,
-    ) -> Self {
-        Self::from_stores(
-            config,
-            header_store,
-            sender,
-            default_config_store(),
-            Stores {
-                tx: ram.tx,
-                label: ram.label,
-                statuses: ram.statuses,
-                account: ram.account,
-                signers: ram.signers,
-            },
-            None,
-        )
     }
 }
 
@@ -549,7 +364,7 @@ impl<P: StorageProfile> Account<P> {
             config.look_ahead,
             tx_store,
             label_store.clone(),
-            config.clone(),
+            config.scanner(),
             account_store.clone(),
         )));
         coin_store.lock().expect("poisoned").generate();
@@ -1962,7 +1777,7 @@ mod tests {
                 look_ahead,
                 tx_store,
                 label_store,
-                dummy_config,
+                dummy_config.scanner(),
                 account_store,
             )));
             coin_store.lock().expect("poisoned").init(tip_sender);
@@ -2046,7 +1861,7 @@ mod tests {
             20,
             TxStore::new(),
             label_store,
-            dummy_config,
+            dummy_config.scanner(),
             account_store,
         )));
         (coin_store, derivator)

@@ -8,6 +8,10 @@ repository.workspace = true
 keywords.workspace = true
 description = "Coin domain types shared by scanning and transaction building"
 
+[features]
+default = []
+test = []
+
 [dependencies]
 miniscript = { workspace = true, features = ["serde", "base64"] }
 bitcoin = { workspace = true, features = ["rand-std"] }
