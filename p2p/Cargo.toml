@@ -20,5 +20,5 @@ dns-lookup = { workspace = true }
 rand = { workspace = true }
 
 [dev-dependencies]
-corepc-node = { workspace = true }
 env_logger = { workspace = true }
+corepc-node = { workspace = true }
