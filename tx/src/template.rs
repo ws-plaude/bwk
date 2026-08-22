@@ -54,7 +54,7 @@ pub struct TxSimulation {
 }
 
 /// Error returned by the [`TxRequest`]-driven account helpers.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum TxRequestError {
     #[error("invalid address '{address}': {source}")]
     InvalidAddress {

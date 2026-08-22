@@ -4,7 +4,7 @@ pub mod keys;
 pub use derivator::KeyDerivator;
 pub use keys::{OXpriv, OXpub};
 
-use thiserror::Error;
+use bwk_error::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {

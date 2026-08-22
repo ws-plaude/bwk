@@ -1,5 +1,5 @@
 use crate::util::Threading;
-use thiserror::Error;
+use bwk_error::Error;
 
 #[derive(Error, Debug)]
 #[error("{0}")]

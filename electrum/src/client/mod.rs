@@ -35,7 +35,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const MERKLE_HASH_BYTES: usize = 32;
 const SHORT_HEX_BYTES: usize = 8;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum Error {
     #[error("transport error: {0}")]
     Transport(#[from] raw_client::Error),
@@ -53,7 +53,7 @@ pub enum Error {
     Rejected(String),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum DecodeError {
     #[error("invalid header hex: {0}")]
     HeaderHex(#[source] HexToBytesError),
@@ -122,7 +122,7 @@ impl CoinRequest {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum CoinError {
     #[error("failed to send batch request: {0}")]
     Send(#[source] raw_client::Error),
@@ -228,7 +228,7 @@ pub enum HeaderRequest {
     Stop,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum HeaderError {
     #[error("failed to send subscribe: {0}")]
     SendSubscribe(#[source] raw_client::Error),

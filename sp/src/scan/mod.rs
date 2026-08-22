@@ -55,7 +55,7 @@ pub struct ScanRuntimeConfig {
     fetch_concurrency: NonZeroUsize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, bwk_error::Error)]
 pub enum ScanRuntimeConfigError {
     #[error("SP fetch concurrency factor must be between 1 and {MAX_FETCH_CONCURRENCY_FACTOR}")]
     InvalidFetchConcurrencyFactor,

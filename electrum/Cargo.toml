@@ -24,8 +24,7 @@ serde_json.workspace = true
 hex-conservative.workspace = true
 bwk-backoff.workspace = true
 bwk-utils.workspace = true
-thiserror.workspace = true
-
+bwk-error.workspace = true
 # Android uses native-tls's openssl backend, which looks for certs at the
 # build-host paths, so vendor a static openssl only there.
 [target.'cfg(target_os = "android")'.dependencies]

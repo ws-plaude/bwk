@@ -1,4 +1,4 @@
-use thiserror::Error;
+use bwk_error::Error;
 
 use bitcoin::hashes::sha256;
 use bitcoin::hashes::Hash;

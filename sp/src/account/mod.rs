@@ -65,7 +65,7 @@ type Stores = (
 
 #[cfg(feature = "mnemonic")]
 /// Errors that can occur in Account operations.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum AccountError {
     #[error("either mnemonic or scan_sk must be provided")]
     MissingKeys,

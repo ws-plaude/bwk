@@ -15,5 +15,5 @@ doctest = false
 [dependencies]
 bip39.workspace = true
 bitcoin.workspace = true
-thiserror.workspace = true
+bwk-error.workspace = true
 bwk-utils.workspace = true

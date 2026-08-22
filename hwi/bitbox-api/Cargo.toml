@@ -23,7 +23,7 @@ noise-rust-crypto = "0.6"
 semver = "1.0.17"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+bwk-error.workspace = true
 zeroize = "1"
 
 # Local timezone offset for the device clock, see util::local_utc_offset_secs.

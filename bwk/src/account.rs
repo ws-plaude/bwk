@@ -195,7 +195,7 @@ pub enum TxListenerNotif {
 }
 
 /// Errors surfaced through [`TxListenerNotif::Error`].
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum TxListenerError {
     #[error("failed to create electrum client: {0}")]
     Client(#[from] bwk_electrum::client::Error),

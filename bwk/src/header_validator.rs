@@ -36,7 +36,7 @@ const MAX_FUTURE_BLOCK_TIME: u64 = 7200;
 /// Number of ancestor block times the median-time-past check looks at.
 pub(crate) const MTP_WINDOW: usize = 11;
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, bwk_error::Error)]
 pub enum Error {
     #[error("proof-of-work check failed")]
     Pow,

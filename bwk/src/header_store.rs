@@ -117,7 +117,7 @@ struct WorkerHandle {
     min_height: Option<u32>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum StartError {
     #[error("failed to connect to electrum: {0}")]
     Connect(#[from] ClientError),
@@ -125,7 +125,7 @@ pub enum StartError {
     Open(#[from] PersistError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, bwk_error::Error)]
 pub enum InvalidCause {
     #[error("{0}")]
     Validator(ValidatorError),
@@ -147,7 +147,7 @@ pub enum HeaderValidationState {
 /// validation, or persisting the change failed. Persist failures must
 /// surface so the in-memory chain and the on-disk file cannot silently
 /// diverge.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub(crate) enum MutateError {
     #[error("header validation failed: {0}")]
     Validate(#[from] ValidatorError),

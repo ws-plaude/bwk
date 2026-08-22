@@ -105,7 +105,7 @@ fn dump_threads() {
 // MockBackendError
 
 /// Errors that can occur in MockBackend operations.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum MockBackendError {
     /// Simulated network failure
     #[error("simulated network failure after {0} calls")]

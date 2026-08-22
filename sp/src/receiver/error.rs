@@ -1,6 +1,6 @@
 //! Source: adapted from cygnet3/spdk. See `sp/NOTICE`.
 
-use thiserror::Error;
+use bwk_error::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {

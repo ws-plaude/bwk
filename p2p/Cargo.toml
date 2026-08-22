@@ -14,7 +14,7 @@ doctest = false
 [dependencies]
 bitcoin = { workspace = true }
 bwk-backoff = { workspace = true }
-thiserror = { workspace = true }
+bwk-error.workspace = true
 log = { workspace = true }
 dns-lookup = { workspace = true }
 rand = { workspace = true }

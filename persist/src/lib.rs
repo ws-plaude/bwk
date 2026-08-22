@@ -133,7 +133,7 @@ pub const KNOWN_STORES: &[&str] = &[
 pub const VERSION_ROW_KEY: &str = "version";
 
 /// Errors returned by [`PersistenceBackend`] implementations.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, bwk_error::Error)]
 pub enum PersistError {
     #[error("io error: {0}")]
     Io(String),

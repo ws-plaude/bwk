@@ -1,6 +1,6 @@
 use super::u2fframing::{self, U2FFraming};
 use crate::util::Threading;
-use thiserror::Error;
+use bwk_error::Error;
 
 #[cfg(feature = "usb")]
 pub const FIRMWARE_CMD: u8 = 0x80 + 0x40 + 0x01;

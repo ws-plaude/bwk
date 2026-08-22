@@ -399,7 +399,7 @@ impl Config {
 }
 
 /// Errors that can occur when loading or parsing Config.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum ConfigError {
     #[error("io error: {0}")]
     Io(String),

@@ -12,7 +12,7 @@ use crate::{
     Coin, DUST_AMOUNT,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, Serialize, Deserialize, bwk_error::Error)]
 pub enum Error {
     #[error("failed to satisfy an input")]
     Satisfaction,

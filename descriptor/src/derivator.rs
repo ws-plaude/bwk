@@ -7,7 +7,7 @@ use miniscript::{
 
 use crate::{tr, wpkh};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum Error {
     #[error("descriptor is not a multipath xpub")]
     NotMultiXpub,

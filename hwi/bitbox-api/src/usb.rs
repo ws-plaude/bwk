@@ -1,6 +1,6 @@
 use super::constants::{PRODUCT_ID, VENDOR_ID};
+use bwk_error::Error;
 use std::sync::Mutex;
-use thiserror::Error;
 
 use super::communication::{Error as CommunicationError, ReadWrite};
 

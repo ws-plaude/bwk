@@ -51,7 +51,7 @@ pub struct SpentInput {
 }
 
 /// Error returned when [`Client::validate_psbt`] cannot run the check at all.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, bwk_error::Error)]
 pub enum ValidationError {
     /// Underlying Electrum client error not tied to a specific input/output.
     #[error("electrum error: {0}")]

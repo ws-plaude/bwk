@@ -57,7 +57,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 # Utilities
-thiserror = { workspace = true }
+bwk-error.workspace = true
 log = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
 

@@ -96,7 +96,7 @@ pub struct Payload {
     pub output_type: pb::BtcOutputType,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(bwk_error::Error, Debug)]
 pub enum PayloadError {
     #[error("unrecognized pubkey script")]
     Unrecognized,
@@ -176,7 +176,7 @@ pub struct SignMessageSignature {
     pub electrum_sig65: Vec<u8>,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(bwk_error::Error, Debug)]
 pub enum PsbtError {
     #[error("{0}")]
     SignError(#[from] bitcoin::psbt::SignError),
