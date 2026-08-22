@@ -29,10 +29,10 @@ serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
 env_logger = { workspace = true, optional = true }
-dirs.workspace = true
 bip39 = { workspace = true, features = ["serde", "rand"] }
 bwk-error.workspace = true
 [dev-dependencies]
+env_logger = { workspace = true }
 home.workspace = true
 bwk-persist = { workspace = true, features = ["test"] }
 electrsd = { git = "https://github.com/pythcoiner/electrsd.git", branch = "buffered_logs"}

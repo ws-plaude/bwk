@@ -6,6 +6,44 @@ use bwk_sign::hot_signer::HotSigner;
 use miniscript::{bitcoin, Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 
+/// The directory `datadir` hangs its subdirectory off: the home directory on
+/// Linux, and the platform's config location elsewhere.
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+fn base_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        std::env::var_os("HOME")
+            .filter(|home| !home.is_empty())
+            .map(PathBuf::from)
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::env::var_os("HOME")
+            .filter(|home| !home.is_empty())
+            .map(|home| PathBuf::from(home).join("Library/Application Support"))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("APPDATA")
+            .filter(|appdata| !appdata.is_empty())
+            .map(PathBuf::from)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .filter(|dir| !dir.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .filter(|home| !home.is_empty())
+                    .map(|home| PathBuf::from(home).join(".config"))
+            })
+    }
+}
+
 /// Filename used by [`bwk_persist::FileConfigStore`].
 ///
 /// Lives on `Config` for backwards-compat with existing on-disk layouts;
@@ -31,19 +69,8 @@ const TIP_CHANGE_ROW: &str = "change_index";
 /// path natively and pass it as `data_dir` to `Config::new`.
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub fn datadir(dir_name: &str) -> PathBuf {
-    #[cfg(target_os = "linux")]
-    let dir = {
-        let mut dir = dirs::home_dir().unwrap();
-        dir.push(dir_name);
-        dir
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let dir = {
-        let mut dir = dirs::config_dir().unwrap();
-        dir.push(dir_name);
-        dir
-    };
+    let mut dir = base_dir().expect("no home directory for this user");
+    dir.push(dir_name);
 
     maybe_create_dir(&dir);
 
