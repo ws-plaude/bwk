@@ -1,9 +1,7 @@
 //! Rust BitBox hardware wallet client library (sync fork).
 
 pub mod btc;
-pub mod cardano;
 pub mod error;
-pub mod eth;
 mod noise;
 #[cfg(feature = "usb")]
 pub mod usb;
@@ -317,13 +315,6 @@ impl PairedBitBox {
     /// Returns which product we are connected to.
     pub fn product(&self) -> Product {
         self.communication.info.product
-    }
-
-    fn is_multi_edition(&self) -> bool {
-        matches!(
-            self.product(),
-            crate::Product::BitBox02Multi | crate::Product::BitBox02NovaMulti
-        )
     }
 
     /// Returns the firmware version.
