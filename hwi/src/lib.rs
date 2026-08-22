@@ -113,41 +113,64 @@ pub struct Version {
     pub prerelease: Option<String>,
 }
 
-#[cfg(feature = "regex")]
-pub fn parse_version(s: &str) -> Result<Version, Error> {
-    // Regex from https://semver.org/ with patch group marked as optional
-    let re = regex::Regex::new(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$").unwrap();
-    if let Some(captures) = re.captures(
-        s.trim_start_matches('v')
-            // Coldcard Q does not follow semver format
-            .trim_end_matches("QX")
-            // Coldcard mk4 does not follow semver format
-            .trim_end_matches('X'),
-    ) {
-        let major = if let Some(s) = captures.get(1) {
-            u32::from_str(s.as_str()).map_err(|_| Error::UnsupportedVersion)?
-        } else {
-            0
-        };
-        let minor = if let Some(s) = captures.get(2) {
-            u32::from_str(s.as_str()).map_err(|_| Error::UnsupportedVersion)?
-        } else {
-            0
-        };
-        let patch = if let Some(s) = captures.get(3) {
-            u32::from_str(s.as_str()).map_err(|_| Error::UnsupportedVersion)?
-        } else {
-            0
-        };
-        Ok(Version {
-            major,
-            minor,
-            patch,
-            prerelease: captures.get(4).map(|s| s.as_str().to_string()),
-        })
-    } else {
-        Err(Error::UnsupportedVersion)
+/// A semver numeric identifier: `0`, or a digit string with no leading zero.
+fn numeric_ident(s: &str) -> Result<u32, Error> {
+    let leading_zero = s.len() > 1 && s.starts_with('0');
+    if s.is_empty() || leading_zero || !s.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(Error::UnsupportedVersion);
     }
+    u32::from_str(s).map_err(|_| Error::UnsupportedVersion)
+}
+
+/// A semver prerelease identifier: a numeric one, or alphanumerics and hyphens
+/// with at least one character that is not a digit.
+fn is_prerelease_ident(s: &str) -> bool {
+    let alphanumeric = !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    alphanumeric && (!s.bytes().all(|b| b.is_ascii_digit()) || numeric_ident(s).is_ok())
+}
+
+/// A semver build identifier: alphanumerics and hyphens, leading zeros allowed.
+fn is_build_ident(s: &str) -> bool {
+    !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+/// Parse a device version, following <https://semver.org/> with the patch
+/// number optional and the build metadata discarded.
+pub fn parse_version(s: &str) -> Result<Version, Error> {
+    let s = s
+        .trim_start_matches('v')
+        // Coldcard Q does not follow semver format
+        .trim_end_matches("QX")
+        // Coldcard mk4 does not follow semver format
+        .trim_end_matches('X');
+
+    let (s, build) = match s.split_once('+') {
+        Some((s, build)) => (s, Some(build)),
+        None => (s, None),
+    };
+    if build.is_some_and(|b| !b.split('.').all(is_build_ident)) {
+        return Err(Error::UnsupportedVersion);
+    }
+
+    let (core, prerelease) = match s.split_once('-') {
+        Some((core, prerelease)) => (core, Some(prerelease)),
+        None => (s, None),
+    };
+    if prerelease.is_some_and(|p| !p.split('.').all(is_prerelease_ident)) {
+        return Err(Error::UnsupportedVersion);
+    }
+
+    let mut core = core.split('.');
+    let (major, minor, patch, extra) = (core.next(), core.next(), core.next(), core.next());
+    if extra.is_some() {
+        return Err(Error::UnsupportedVersion);
+    }
+    Ok(Version {
+        major: numeric_ident(major.ok_or(Error::UnsupportedVersion)?)?,
+        minor: numeric_ident(minor.ok_or(Error::UnsupportedVersion)?)?,
+        patch: patch.map(numeric_ident).transpose()?.unwrap_or(0),
+        prerelease: prerelease.map(str::to_string),
+    })
 }
 
 impl PartialOrd for Version {
@@ -234,7 +257,82 @@ impl std::str::FromStr for DeviceKind {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "regex")]
+    #[test]
+    fn parse_version_defaults_a_missing_patch_to_zero() {
+        assert_eq!(
+            parse_version("0.1").unwrap(),
+            Version {
+                major: 0,
+                minor: 1,
+                patch: 0,
+                prerelease: None
+            }
+        );
+    }
+
+    #[test]
+    fn parse_version_keeps_the_whole_prerelease_and_drops_the_build() {
+        assert_eq!(
+            parse_version("1.2.3-rc.1+build.7").unwrap(),
+            Version {
+                major: 1,
+                minor: 2,
+                patch: 3,
+                prerelease: Some("rc.1".to_string())
+            }
+        );
+    }
+
+    #[test]
+    fn parse_version_rejects_malformed_input() {
+        for s in [
+            "",                // nothing at all
+            "1",               // no minor
+            "1.2.3.4",         // too many numbers
+            "1.",              // empty minor
+            "01.2",            // leading zero
+            "1.2.03",          // leading zero in the patch
+            "1.2-",            // empty prerelease
+            "1.2+",            // empty build
+            "1.2.3-01",        // numeric prerelease with a leading zero
+            "1.2.3-a..b",      // empty prerelease identifier
+            "1.2.3+a+b",       // a build identifier cannot hold a plus
+            "1.2.3-a+b+c",     // nor can it after a prerelease
+            "-1.2",            // no version core
+            "1.2.3 ",          // trailing space
+            "99999999999.0.0", // past u32
+        ] {
+            assert!(parse_version(s).is_err(), "{s:?} must be refused");
+        }
+    }
+
+    #[test]
+    fn parse_version_strips_the_prefixes_the_devices_add() {
+        let expected = Version {
+            major: 5,
+            minor: 0,
+            patch: 7,
+            prerelease: None,
+        };
+        // Ledger prefixes with `v`, Coldcard mk4 suffixes `X` and the Q `QX`.
+        assert_eq!(parse_version("v5.0.7").unwrap(), expected);
+        assert_eq!(parse_version("5.0.7X").unwrap(), expected);
+        assert_eq!(parse_version("5.0.7QX").unwrap(), expected);
+    }
+
+    #[test]
+    fn parse_version_accepts_a_hyphen_inside_a_prerelease() {
+        assert_eq!(
+            parse_version("1.2.3--a-b").unwrap(),
+            Version {
+                major: 1,
+                minor: 2,
+                patch: 3,
+                prerelease: Some("-a-b".to_string())
+            }
+        );
+    }
+
     #[test]
     fn test_parse_version() {
         let test_cases = [
@@ -298,7 +396,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "regex")]
     #[test]
     fn test_partial_ord_version() {
         let test_cases = [

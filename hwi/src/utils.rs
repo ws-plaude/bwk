@@ -130,16 +130,81 @@ pub fn bip86_path_child_numbers(path: DerivationPath) -> Result<Vec<ChildNumber>
     }
 }
 
-#[cfg(feature = "regex")]
-pub fn extract_keys_and_template<T: FromStr>(policy: &str) -> Result<(String, Vec<T>), Error> {
-    let re = regex::Regex::new(r"((\[.+?\])?[xyYzZtuUvV]pub[1-9A-HJ-NP-Za-km-z]{79,108})").unwrap();
-    let mut descriptor_template = policy.to_string();
-    let mut pubkeys_str: Vec<&str> = Vec::new();
-    for capture in re.find_iter(policy) {
-        if !pubkeys_str.contains(&capture.as_str()) {
-            pubkeys_str.push(capture.as_str());
+/// Base58 as Bitcoin defines it: no `0`, `O`, `I` or `l`.
+fn is_base58(c: char) -> bool {
+    c.is_ascii_alphanumeric() && !matches!(c, '0' | 'O' | 'I' | 'l')
+}
+
+/// An extended key body is the version prefix plus 79 to 108 base58 characters,
+/// which covers every prefix the supported devices emit.
+const XKEY_BODY_MIN: usize = 79;
+const XKEY_BODY_MAX: usize = 108;
+
+/// Version prefixes an extended key can carry, mainnet and testnet, across the
+/// script types the devices report.
+const XKEY_PREFIXES: [&str; 10] = [
+    "xpub", "ypub", "Ypub", "zpub", "Zpub", "tpub", "upub", "Upub", "vpub", "Vpub",
+];
+
+/// End offset of the extended key at `at`, which must start with a version
+/// prefix, or `None` if none does.
+fn xkey_body_end(s: &str, at: usize) -> Option<usize> {
+    let rest = s.get(at..)?;
+    let prefix = XKEY_PREFIXES.iter().find(|p| rest.starts_with(**p))?;
+    let len = rest[prefix.len()..]
+        .chars()
+        .take_while(|c| is_base58(*c))
+        .take(XKEY_BODY_MAX)
+        .count();
+    (len >= XKEY_BODY_MIN).then_some(at + prefix.len() + len)
+}
+
+/// End offset of the extended key starting at `at`, origin prefix included, or
+/// `None` if none starts there.
+fn xkey_end(s: &str, at: usize) -> Option<usize> {
+    if s[at..].starts_with('[') {
+        let tail = &s[at + 1..];
+        // An origin is the shortest bracketed run that a key actually follows,
+        // so keep trying closing brackets rather than stopping at the first.
+        for (offset, _) in tail.match_indices(']') {
+            if offset == 0 {
+                continue;
+            }
+            if tail[..offset].contains('\n') {
+                break;
+            }
+            if let Some(end) = xkey_body_end(s, at + offset + 2) {
+                return Some(end);
+            }
         }
     }
+    xkey_body_end(s, at)
+}
+
+/// Every extended key in `s`, each with its `[fingerprint/path]` origin when it
+/// has one, in order of appearance and without duplicates.
+pub fn find_xkeys(s: &str) -> Vec<&str> {
+    let mut keys: Vec<&str> = Vec::new();
+    let mut at = 0;
+    while at < s.len() {
+        match xkey_end(s, at) {
+            Some(end) => {
+                let key = &s[at..end];
+                if !keys.contains(&key) {
+                    keys.push(key);
+                }
+                at = end;
+            }
+            // Not a key here: advance one character, not one byte.
+            None => at += s[at..].chars().next().map_or(1, char::len_utf8),
+        }
+    }
+    keys
+}
+
+pub fn extract_keys_and_template<T: FromStr>(policy: &str) -> Result<(String, Vec<T>), Error> {
+    let mut descriptor_template = policy.to_string();
+    let pubkeys_str = find_xkeys(policy);
 
     let mut pubkeys: Vec<T> = Vec::new();
     for (i, key_str) in pubkeys_str.iter().enumerate() {
@@ -161,6 +226,80 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+
+    #[test]
+    fn find_xkeys_reads_keys_with_and_without_an_origin() {
+        let policy = "wsh(or_d(pk([f5acc2fd/49'/1'/0']tpubDCbK3Ysvk8HjcF6mPyrgMu3KgLiaaP19RjKpNezd8GrbAbNg6v5BtWLaCt8FNm6QkLseopKLf5MNYQFtochDTKHdfgG6iqJ8cqnLNAwtXuP/**),and_v(v:pkh(tpubDDtb2WPYwEWw2WWDV7reLV348iJHw2HmhzvPysKKrJw3hYmvrd4jasyoioVPdKGQqjyaBMEvTn1HvHWDSVqQ6amyyxRZ5YjpPBBGjJ8yu8S/**),older(100))))";
+        assert_eq!(
+            find_xkeys(policy),
+            vec![
+                "[f5acc2fd/49'/1'/0']tpubDCbK3Ysvk8HjcF6mPyrgMu3KgLiaaP19RjKpNezd8GrbAbNg6v5BtWLaCt8FNm6QkLseopKLf5MNYQFtochDTKHdfgG6iqJ8cqnLNAwtXuP",
+                "tpubDDtb2WPYwEWw2WWDV7reLV348iJHw2HmhzvPysKKrJw3hYmvrd4jasyoioVPdKGQqjyaBMEvTn1HvHWDSVqQ6amyyxRZ5YjpPBBGjJ8yu8S",
+            ]
+        );
+    }
+
+    #[test]
+    fn find_xkeys_drops_repeats_and_keeps_first_seen_order() {
+        let policy = format!("wsh(multi(2,tpubDDtb2WPYwEWw2WWDV7reLV348iJHw2HmhzvPysKKrJw3hYmvrd4jasyoioVPdKGQqjyaBMEvTn1HvHWDSVqQ6amyyxRZ5YjpPBBGjJ8yu8S/<0;1>/*,tpubDCbK3Ysvk8HjcF6mPyrgMu3KgLiaaP19RjKpNezd8GrbAbNg6v5BtWLaCt8FNm6QkLseopKLf5MNYQFtochDTKHdfgG6iqJ8cqnLNAwtXuP/<0;1>/*,tpubDDtb2WPYwEWw2WWDV7reLV348iJHw2HmhzvPysKKrJw3hYmvrd4jasyoioVPdKGQqjyaBMEvTn1HvHWDSVqQ6amyyxRZ5YjpPBBGjJ8yu8S/<2;3>/*))");
+        assert_eq!(find_xkeys(&policy), vec!["tpubDDtb2WPYwEWw2WWDV7reLV348iJHw2HmhzvPysKKrJw3hYmvrd4jasyoioVPdKGQqjyaBMEvTn1HvHWDSVqQ6amyyxRZ5YjpPBBGjJ8yu8S", "tpubDCbK3Ysvk8HjcF6mPyrgMu3KgLiaaP19RjKpNezd8GrbAbNg6v5BtWLaCt8FNm6QkLseopKLf5MNYQFtochDTKHdfgG6iqJ8cqnLNAwtXuP"]);
+    }
+
+    #[test]
+    fn find_xkeys_accepts_every_version_prefix() {
+        for prefix in XKEY_PREFIXES {
+            let key = format!("{prefix}{}", "1".repeat(XKEY_BODY_MIN));
+            assert_eq!(find_xkeys(&key), vec![key.as_str()], "prefix {prefix}");
+        }
+        let unknown = format!("wpub{}", "1".repeat(XKEY_BODY_MIN));
+        assert!(find_xkeys(&unknown).is_empty());
+    }
+
+    #[test]
+    fn find_xkeys_holds_to_the_body_length_bounds() {
+        let short = format!("xpub{}", "1".repeat(XKEY_BODY_MIN - 1));
+        assert!(find_xkeys(&short).is_empty());
+
+        let exact = format!("xpub{}", "1".repeat(XKEY_BODY_MIN));
+        assert_eq!(find_xkeys(&exact), vec![exact.as_str()]);
+
+        // Past the maximum the key is still read, truncated to the bound.
+        let long = format!("xpub{}", "1".repeat(XKEY_BODY_MAX + 5));
+        let expected = format!("xpub{}", "1".repeat(XKEY_BODY_MAX));
+        assert_eq!(find_xkeys(&long), vec![expected.as_str()]);
+    }
+
+    #[test]
+    fn find_xkeys_rejects_non_base58_in_the_body() {
+        // `0`, `O`, `I` and `l` are not base58, so each cuts the body short.
+        for excluded in ['0', 'O', 'I', 'l'] {
+            let key = format!(
+                "xpub{}{excluded}{}",
+                "1".repeat(10),
+                "1".repeat(XKEY_BODY_MIN)
+            );
+            assert!(find_xkeys(&key).is_empty(), "stopped at {excluded}");
+        }
+    }
+
+    #[test]
+    fn find_xkeys_skips_an_empty_origin() {
+        let key = format!("[]xpub{}", "1".repeat(XKEY_BODY_MIN));
+        assert_eq!(find_xkeys(&key), vec![&key[2..]]);
+    }
+
+    #[test]
+    fn find_xkeys_scans_past_a_bracket_no_key_follows() {
+        // The first `]` is not the origin's: the key sits after the second.
+        let key = format!("[aa]]xpub{}", "1".repeat(XKEY_BODY_MIN));
+        assert_eq!(find_xkeys(&key), vec![key.as_str()]);
+    }
+
+    #[test]
+    fn find_xkeys_stops_an_origin_at_a_newline() {
+        let key = format!("[aa\n]xpub{}", "1".repeat(XKEY_BODY_MIN));
+        assert_eq!(find_xkeys(&key), vec![&key[5..]]);
+    }
 
     #[test]
     fn test_sort_bip32_derivations() {

@@ -1,4 +1,6 @@
-use crate::{bip389, parse_version, AddressScript, DeviceKind, Error as HWIError, HWI};
+use crate::{
+    bip389, parse_version, utils::find_xkeys, AddressScript, DeviceKind, Error as HWIError, HWI,
+};
 use api::btc::make_script_config_simple;
 use bitbox_api::{
     btc::KeyOriginInfo,
@@ -11,7 +13,6 @@ use bitcoin::{
     bip32::{ChildNumber, DerivationPath, Fingerprint, Xpub},
     psbt::Psbt,
 };
-use regex::Regex;
 use std::{
     str::FromStr,
     sync::{Arc, Mutex},
@@ -379,14 +380,8 @@ impl From<BitBox02> for std::sync::Arc<dyn HWI + Sync + Send> {
 }
 
 pub fn extract_script_config_policy(policy: &str) -> Result<Policy, HWIError> {
-    let re = Regex::new(r"((\[.+?\])?[xyYzZtuUvV]pub[1-9A-HJ-NP-Za-km-z]{79,108})").unwrap();
     let mut descriptor_template = policy.to_string();
-    let mut pubkeys_str: Vec<&str> = Vec::new();
-    for capture in re.find_iter(policy) {
-        if !pubkeys_str.contains(&capture.as_str()) {
-            pubkeys_str.push(capture.as_str());
-        }
-    }
+    let pubkeys_str = find_xkeys(policy);
 
     let mut pubkeys: Vec<KeyInfo> = Vec::new();
     for (i, key_str) in pubkeys_str.iter().enumerate() {
@@ -439,14 +434,40 @@ pub fn extract_script_config_policy(policy: &str) -> Result<Policy, HWIError> {
     })
 }
 
+/// Every `@<key index>/<derivation>` in `template`, each running to the next
+/// `,` or `)`.
+fn appended_derivations(template: &str) -> Vec<&str> {
+    let mut derivations = Vec::new();
+    let mut at = 0;
+    while let Some(offset) = template[at..].find('@') {
+        let start = at + offset;
+        let digits = template[start + 1..]
+            .bytes()
+            .take_while(u8::is_ascii_digit)
+            .count();
+        at = start + 1 + digits;
+        if digits == 0 || !template[at..].starts_with('/') {
+            continue;
+        }
+        let len = template[at + 1..]
+            .find([',', ')'])
+            .unwrap_or(template.len() - at - 1);
+        if len == 0 {
+            continue;
+        }
+        at += 1 + len;
+        derivations.push(&template[start..at]);
+    }
+    derivations
+}
+
 pub fn extract_first_appended_derivation_with_some_wildcard(
     key_index: usize,
     template: &str,
 ) -> Result<(Vec<DerivationPath>, bip389::Wildcard), HWIError> {
-    let re = Regex::new(r"@\d+/[^,)]+").unwrap();
-    for capture in re.find_iter(template) {
-        if capture.as_str().contains(&format!("@{key_index}")) {
-            if let Some((_, appended)) = capture.as_str().split_once('/') {
+    for appended_derivation in appended_derivations(template) {
+        if appended_derivation.contains(&format!("@{key_index}")) {
+            if let Some((_, appended)) = appended_derivation.split_once('/') {
                 let (derivations, wildcard) = bip389::parse_xkey_deriv(appended)?;
                 if wildcard != bip389::Wildcard::None {
                     return Ok((derivations, wildcard));
@@ -489,6 +510,32 @@ impl From<KeyInfo> for KeyOriginInfo {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn appended_derivations_reads_each_key_and_its_derivation() {
+        assert_eq!(
+            appended_derivations("wsh(multi(2,@0/<0;1>/*,@1/<2;3>/*))#abcd"),
+            vec!["@0/<0;1>/*", "@1/<2;3>/*"]
+        );
+        assert_eq!(
+            appended_derivations("tr(@0/**,{and_v(v:pk(@1/<2;3>/*),older(65535)),pk(@2/*)})"),
+            vec!["@0/**", "@1/<2;3>/*", "@2/*"]
+        );
+    }
+
+    #[test]
+    fn appended_derivations_skips_what_is_not_a_key_reference() {
+        // No index, no slash, and nothing after the slash.
+        assert!(appended_derivations("@/x").is_empty());
+        assert!(appended_derivations("@0x").is_empty());
+        assert!(appended_derivations("@0/)").is_empty());
+        assert!(appended_derivations("@0/,").is_empty());
+    }
+
+    #[test]
+    fn appended_derivations_runs_to_the_end_when_nothing_closes_it() {
+        assert_eq!(appended_derivations("@12/<0;1>/*"), vec!["@12/<0;1>/*"]);
+    }
     use super::*;
 
     #[test]
