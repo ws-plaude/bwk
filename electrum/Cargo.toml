@@ -16,7 +16,6 @@ doctest = false
 
 [dependencies]
 miniscript = { workspace = true, features = ["serde", "base64"] }
-bitcoin_slices.workspace = true
 log.workspace = true
 native-tls = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
