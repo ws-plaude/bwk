@@ -51,6 +51,8 @@ tests locally. Commit messages must be single-line and follow existing style
 | bwk-descriptor | Miniscript descriptor handling, SpkDerivator                |
 | bwk-keys       | Key derivation utilities (OXpriv, OXpub, KeyDerivator)      |
 | bwk-p2p        | Bitcoin P2P network client, DNS seed resolution             |
+| bwk-qr         | QR flow: generation, scanning, BBQR framing                 |
+| bwk-qr-protocol| Signing-flow codec (no_std, no deps, C binding)             |
 | bwk-backoff    | Exponential backoff utility                                 |
 | bwk-utils      | Test helpers (behind `test` feature)                        |
 +----------------+-------------------------------------------------------------+
