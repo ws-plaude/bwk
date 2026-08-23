@@ -108,6 +108,11 @@ pub struct Config {
     pub electrum_port: Option<u16>,
     #[serde(default)]
     pub offline: Option<bool>,
+    /// Whether to validate the server's TLS certificate against its hostname.
+    /// `None` means no preference was expressed; see
+    /// [`ScannerConfig::validate_certificate`](bwk_electrum::ScannerConfig::validate_certificate).
+    #[serde(default)]
+    pub validate_certificate: Option<bool>,
     pub network: bitcoin::Network,
     pub look_ahead: u32,
     pub mnemonic: Option<String>,
@@ -159,6 +164,7 @@ impl Config {
             account,
             electrum_url: None,
             electrum_port: None,
+            validate_certificate: None,
             network,
             look_ahead: 20,
             mnemonic,
@@ -180,6 +186,7 @@ impl Config {
             electrum_url,
             electrum_port,
             offline,
+            validate_certificate,
             network,
             look_ahead,
             descriptor,
@@ -194,6 +201,7 @@ impl Config {
             electrum_url,
             electrum_port,
             offline,
+            validate_certificate,
             network,
             look_ahead,
             mnemonic,
@@ -311,6 +319,16 @@ impl Config {
     }
     pub fn set_offline(&mut self, offline: bool) {
         self.offline = Some(offline);
+    }
+
+    pub fn set_validate_certificate(&mut self, validate: bool) {
+        self.validate_certificate = Some(validate);
+    }
+
+    /// Validating unless the consumer asked otherwise; see
+    /// [`ScannerConfig::validate_certificate`](bwk_electrum::ScannerConfig::validate_certificate).
+    pub fn validate_certificate(&self) -> bool {
+        self.validate_certificate.unwrap_or(true)
     }
     pub fn offline(&self) -> bool {
         self.offline.unwrap_or(false)
@@ -499,6 +517,7 @@ impl Config {
             electrum_url: self.electrum_url.clone(),
             electrum_port: self.electrum_port,
             offline: self.offline,
+            validate_certificate: self.validate_certificate,
             network: self.network,
             look_ahead: self.look_ahead,
             descriptor: self.descriptor.clone(),

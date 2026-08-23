@@ -38,7 +38,7 @@ fn bootstrap_electrs() -> (String, u16, ElectrsD, BitcoinD) {
 #[test]
 fn broadcast_tx_rejection_is_typed() {
     let (url, port, _electrs, _bitcoind) = bootstrap_electrs();
-    let mut client = Client::new(&url, port).expect("connect");
+    let mut client = Client::new(&url, port, true).expect("connect");
 
     // Random outpoint guaranteed not to exist on regtest.
     let bogus = Transaction {

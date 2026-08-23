@@ -36,6 +36,11 @@ pub struct ScannerConfig {
     pub electrum_port: Option<u16>,
     #[serde(default)]
     pub offline: Option<bool>,
+    /// Whether to validate the server's TLS certificate against its hostname.
+    /// `None` means the consumer expressed no preference; see
+    /// [`ScannerConfig::validate_certificate`].
+    #[serde(default)]
+    pub validate_certificate: Option<bool>,
     pub network: miniscript::bitcoin::Network,
     pub look_ahead: u32,
     pub descriptor: Descriptor<DescriptorPublicKey>,
@@ -68,6 +73,7 @@ impl ScannerConfig {
             electrum_url: None,
             electrum_port: None,
             offline: None,
+            validate_certificate: None,
             network,
             look_ahead: 20,
             descriptor,
@@ -91,6 +97,16 @@ impl ScannerConfig {
 
     pub fn set_offline(&mut self, offline: bool) {
         self.offline = Some(offline);
+    }
+
+    pub fn set_validate_certificate(&mut self, validate: bool) {
+        self.validate_certificate = Some(validate);
+    }
+
+    /// Validating unless the consumer asked otherwise, so a config predating
+    /// the field does not silently stop checking certificates on upgrade.
+    pub fn validate_certificate(&self) -> bool {
+        self.validate_certificate.unwrap_or(true)
     }
 
     /// Where this account's files (or SQLite DB) live.
@@ -126,5 +142,64 @@ impl ScannerConfig {
 
     pub fn offline(&self) -> bool {
         self.offline.unwrap_or(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bwk_descriptor::descriptor::wpkh;
+    use bwk_sign::{bip39::Mnemonic, hot_signer::HotSigner};
+    use miniscript::bitcoin::{bip32::DerivationPath, Network};
+    use std::str::FromStr;
+
+    fn config() -> ScannerConfig {
+        let mnemo = Mnemonic::generate(12).unwrap();
+        let signer = HotSigner::new_from_mnemonics(Network::Regtest, &mnemo.to_string()).unwrap();
+        let xpub = signer.xpub(&DerivationPath::from_str("m/84'/0'/0'/1").unwrap());
+        ScannerConfig::new(
+            wpkh(xpub),
+            PathBuf::default(),
+            String::new(),
+            "test".into(),
+            Network::Regtest,
+            false,
+        )
+    }
+
+    #[test]
+    fn certificate_validation_is_on_until_the_consumer_says_otherwise() {
+        let mut config = config();
+        // Unset stays distinguishable from an explicit choice, so a consumer
+        // can apply its own default to a config predating the field.
+        assert_eq!(config.validate_certificate, None);
+        assert!(config.validate_certificate());
+
+        config.set_validate_certificate(false);
+        assert_eq!(config.validate_certificate, Some(false));
+        assert!(!config.validate_certificate());
+
+        config.set_validate_certificate(true);
+        assert_eq!(config.validate_certificate, Some(true));
+        assert!(config.validate_certificate());
+    }
+
+    #[test]
+    fn a_config_written_before_the_field_existed_still_validates() {
+        let json = r#"{"account":"test","network":"regtest","look_ahead":20,
+            "descriptor":"wpkh(tpubDCbK3Ysvk8HjcF6mPyrgMu3KgLiaaP19RjKpNezd8GrbAbNg6v5BtWLaCt8FNm6QkLseopKLf5MNYQFtochDTKHdfgG6iqJ8cqnLNAwtXuP/<0;1>/*)","persist":false}"#;
+        let config: ScannerConfig = serde_json::from_str(json).expect("decodes without the field");
+        assert_eq!(config.validate_certificate, None);
+        assert!(config.validate_certificate());
+    }
+
+    #[test]
+    fn the_choice_survives_a_round_trip() {
+        let mut config = config();
+        config.set_validate_certificate(false);
+        let encoded = serde_json::to_string(&config).expect("encodes");
+        let decoded: ScannerConfig = serde_json::from_str(&encoded).expect("decodes");
+        assert_eq!(decoded.validate_certificate, Some(false));
+        assert!(!decoded.validate_certificate());
     }
 }

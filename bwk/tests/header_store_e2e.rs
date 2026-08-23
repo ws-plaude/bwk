@@ -143,7 +143,8 @@ fn multi_account_shared_header_store() {
     init_logger();
     let (url, port, _electrsd, bitcoind) = bootstrap_electrs();
 
-    let header_store = HeaderStore::start(url.clone(), port, Network::Regtest, None, None).unwrap();
+    let header_store =
+        HeaderStore::start(url.clone(), port, Network::Regtest, None, None, true).unwrap();
 
     // Let the HeaderStore worker complete its initial sync against the
     // pre-mined regtest chain BEFORE constructing Accounts, so the first
@@ -293,7 +294,8 @@ fn reorg_reconfirms_verified() {
     init_logger();
     let (url, port, _electrsd, bitcoind) = bootstrap_electrs();
 
-    let header_store = HeaderStore::start(url.clone(), port, Network::Regtest, None, None).unwrap();
+    let header_store =
+        HeaderStore::start(url.clone(), port, Network::Regtest, None, None, true).unwrap();
 
     // Wait for the initial backfill before creating the Account.
     let chain_tip = get_block_height(&bitcoind);
@@ -413,6 +415,7 @@ fn restart_from_cache_skips_full_validation() {
             Network::Regtest,
             Some(persist_path.clone()),
             Some(0),
+            true,
         )
         .unwrap();
 
@@ -485,6 +488,7 @@ fn restart_from_cache_skips_full_validation() {
                 Network::Regtest,
                 Some(persist_path.clone()),
                 Some(0),
+                true,
             ) {
                 Ok(store) => break store,
                 Err(e) if std::time::Instant::now() < deadline => {
@@ -523,8 +527,15 @@ fn deep_reorg_below_anchor_resyncs() {
     let chain_tip = get_block_height(&bitcoind);
     let anchor = chain_tip - 2;
 
-    let store =
-        HeaderStore::start(url.clone(), port, Network::Regtest, None, Some(anchor)).unwrap();
+    let store = HeaderStore::start(
+        url.clone(),
+        port,
+        Network::Regtest,
+        None,
+        Some(anchor),
+        true,
+    )
+    .unwrap();
     assert!(
         wait_until(Duration::from_secs(60), || store
             .tip()
@@ -568,7 +579,8 @@ fn restart_requeues_stranded_merkle_fetch() {
     init_logger();
     let (url, port, electrsd, bitcoind) = bootstrap_electrs();
 
-    let header_store = HeaderStore::start(url.clone(), port, Network::Regtest, None, None).unwrap();
+    let header_store =
+        HeaderStore::start(url.clone(), port, Network::Regtest, None, None, true).unwrap();
     let chain_tip = get_block_height(&bitcoind);
     assert!(
         wait_until(Duration::from_secs(60), || header_store
@@ -633,7 +645,7 @@ fn sparse_anchor_above_retarget_boundary_syncs_and_verifies() {
 
     // min_height 4100 snaps to 4032 and pads one interval back to 2016.
     let header_store =
-        HeaderStore::start(url.clone(), port, Network::Regtest, None, Some(4100)).unwrap();
+        HeaderStore::start(url.clone(), port, Network::Regtest, None, Some(4100), true).unwrap();
     assert!(
         wait_until(Duration::from_secs(120), || header_store
             .tip()

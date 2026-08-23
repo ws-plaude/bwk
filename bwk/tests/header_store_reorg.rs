@@ -36,8 +36,15 @@ fn header_store_follows_tip_and_resolves_reorg() {
     let tmp = TempDir::new().unwrap();
     let path = tmp.path().join("headers.json");
 
-    let store =
-        HeaderStore::start(url, port, Network::Regtest, Some(path), Some(base_height)).unwrap();
+    let store = HeaderStore::start(
+        url,
+        port,
+        Network::Regtest,
+        Some(path),
+        Some(base_height),
+        true,
+    )
+    .unwrap();
     let rx = store.register();
 
     // Wait for the worker to backfill up to the current tip.

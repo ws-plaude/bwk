@@ -772,7 +772,7 @@ mod integration_tests {
     #[allow(unused)]
     pub fn tcp_client() -> (Client, ElectrsD, BitcoinD) {
         let (url, port, e, b) = bootstrap_electrs();
-        let client = Client::new(&url, port).unwrap();
+        let client = Client::new(&url, port, true).unwrap();
 
         (client, e, b)
     }

@@ -305,10 +305,15 @@ impl Client {
     /// # Arguments
     /// * `address` - url/ip of the electrum server as String
     /// * `port` - port of the electrum server
-    pub fn new(address: &str, port: u16) -> Result<Self, Error> {
+    /// * `validate_certificate` - off accepts a self-signed or hostname-mismatched
+    ///   certificate, which is what a LAN host or an onion address needs: there is
+    ///   no domain to check, and an onion address authenticates the endpoint by
+    ///   itself.
+    pub fn new(address: &str, port: u16, validate_certificate: bool) -> Result<Self, Error> {
         let ssl = address.starts_with("ssl://");
         let address = address.to_string().replace("ssl://", "");
-        let mut inner = RawClient::new_ssl_maybe(&address, port, ssl);
+        let mut inner =
+            RawClient::new_ssl_maybe(&address, port, ssl).verif_certificate(validate_certificate);
         inner.try_connect(Some(CONNECT_TIMEOUT))?;
         Ok(Client {
             inner,

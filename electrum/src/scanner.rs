@@ -222,6 +222,7 @@ impl<P: OpenScanFromBackend> ElectrumScanner<P> {
             config.network,
             path,
             None,
+            config.validate_certificate(),
         )?)
     }
 
@@ -611,6 +612,7 @@ impl<P: ScanProfile> ElectrumScanner<P> {
         // Shared with the thread so it can mark the scanner online once the
         // connection is up, instead of the caller claiming it optimistically.
         let offline = self.offline.clone();
+        let validate_certificate = self.config.validate_certificate();
         let on_config_change = self.on_config_change.clone();
         let config = self.config.clone();
         // Fallback for a panicked previous listener that could not hand its
@@ -639,7 +641,7 @@ impl<P: ScanProfile> ElectrumScanner<P> {
                     },
                 },
             };
-            let client = match crate::client::Client::new(&addr, port) {
+            let client = match crate::client::Client::new(&addr, port, validate_certificate) {
                 Ok(c) => c,
                 Err(e) => {
                     log::error!("start_listen_txs(): fail to create electrum client {e}");

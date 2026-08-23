@@ -314,6 +314,7 @@ impl Account<crate::profile::SpRamProfile<crate::profile::DefaultBackend>> {
                     } else {
                         None
                     },
+                    validate_certificate: None,
                     network: config.network,
                     look_ahead: 20,
                     mnemonic: sub_cfg.mnemonic.clone().or_else(|| config.mnemonic.clone()),
@@ -489,6 +490,7 @@ impl Account<crate::profile::SpRamProfile<crate::profile::DefaultBackend>> {
             config.network,
             path,
             Some(config.min_birthday_height()),
+            true,
         )?)
     }
 }
@@ -1052,7 +1054,7 @@ impl<P: crate::profile::SpStorageProfile> Account<P> {
             .config
             .electrum_endpoint()
             .ok_or(AccountError::NoElectrumEndpoint)?;
-        let mut client = bwk::bwk_electrum::client::Client::new(url, port)?;
+        let mut client = bwk::bwk_electrum::client::Client::new(url, port, true)?;
         client.broadcast_tx(tx)?;
         // Reflect the spend in every store that owns part of it: SP inputs/change
         // here, and each sub-account's own inputs/change. The aggregator then
@@ -1586,6 +1588,7 @@ mod tests {
             electrum_url: None,
             electrum_port: None,
             offline: Some(true),
+            validate_certificate: None,
             network,
             look_ahead: 5,
             mnemonic: Some(mnemo.to_string()),

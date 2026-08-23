@@ -113,6 +113,7 @@ where
 #[derive(Debug)]
 struct WorkerHandle {
     min_height: Option<u32>,
+    validate_certificate: bool,
 }
 
 #[derive(Debug, bwk_error::Error)]
@@ -247,6 +248,7 @@ impl HeaderStore<RamStore<Arc<dyn PersistenceBackend>, u32, [u8; Header::SIZE]>>
         network: Network,
         path: Option<PathBuf>,
         min_height: Option<u32>,
+        validate_certificate: bool,
     ) -> Result<Arc<Self>, StartError> {
         let store = match path {
             Some(p) => Self::from_file(network, p)?,
@@ -257,13 +259,13 @@ impl HeaderStore<RamStore<Arc<dyn PersistenceBackend>, u32, [u8; Header::SIZE]>>
         // silently returning a worker-less store: header-sync progress
         // gates wallet `Verified` state, so the caller must know the store
         // is degraded and can re-attempt.
-        let client = Client::new(&electrum_url, electrum_port).map_err(|e| {
+        let client = Client::new(&electrum_url, electrum_port, validate_certificate).map_err(|e| {
             log::warn!(
                 "HeaderStore::start: fail to create electrum client {electrum_url}:{electrum_port}: {e}"
             );
             StartError::Connect(e)
         })?;
-        store.spawn_worker(client, min_height);
+        store.spawn_worker(client, min_height, validate_certificate);
         Ok(store)
     }
 
@@ -283,9 +285,10 @@ impl HeaderStore<RamStore<Arc<dyn PersistenceBackend>, u32, [u8; Header::SIZE]>>
         network: Network,
         path: Option<PathBuf>,
         min_height: Option<u32>,
+        validate_certificate: bool,
     ) -> Result<Arc<Self>, StartError> {
         if let (Some(url), Some(port)) = (url, port) {
-            return Self::start(url, port, network, path, min_height);
+            return Self::start(url, port, network, path, min_height, validate_certificate);
         }
         Ok(match path {
             Some(p) => Self::from_file(network, p)?,
@@ -300,13 +303,16 @@ impl HeaderStore<RamStore<Arc<dyn PersistenceBackend>, u32, [u8; Header::SIZE]>>
     /// the backfill floor remembered at [`start`](Self::start).
     pub fn restart(self: &Arc<Self>, url: String, port: u16) -> Result<(), StartError> {
         let min_height = self.remembered_min_height();
+        // A reconnect that quietly became strict would drop a working
+        // connection to a self-signed server at an arbitrary later moment.
+        let validate_certificate = self.remembered_validate_certificate();
         self.stopped.store(false, Ordering::SeqCst);
         self.writer_token.fetch_add(1, Ordering::SeqCst);
-        let client = Client::new(&url, port).map_err(|e| {
+        let client = Client::new(&url, port, validate_certificate).map_err(|e| {
             log::warn!("HeaderStore::restart: fail to create electrum client {url}:{port}: {e}");
             StartError::Connect(e)
         })?;
-        self.spawn_worker(client, min_height);
+        self.spawn_worker(client, min_height, validate_certificate);
         Ok(())
     }
 
@@ -319,10 +325,18 @@ impl HeaderStore<RamStore<Arc<dyn PersistenceBackend>, u32, [u8; Header::SIZE]>>
 
     /// Wire `client` to a fresh worker thread, recording the worker handle
     /// and the writer token it was spawned under.
-    fn spawn_worker(self: &Arc<Self>, client: Client, min_height: Option<u32>) {
+    fn spawn_worker(
+        self: &Arc<Self>,
+        client: Client,
+        min_height: Option<u32>,
+        validate_certificate: bool,
+    ) {
         let (req_tx, resp_rx) = client.listen_headers::<HeaderRequest, HeaderResponse>();
         let token = self.writer_token.load(Ordering::SeqCst);
-        *self.worker.lock().expect("poisoned") = Some(WorkerHandle { min_height });
+        *self.worker.lock().expect("poisoned") = Some(WorkerHandle {
+            min_height,
+            validate_certificate,
+        });
         let weak = Arc::downgrade(self);
         let network = self.network;
         thread::spawn(move || run_worker(weak, network, min_height, token, req_tx, resp_rx));
@@ -623,6 +637,16 @@ where
             .expect("poisoned")
             .as_ref()
             .and_then(|w| w.min_height)
+    }
+
+    /// Certificate policy remembered when the worker was spawned, reused by
+    /// `restart`. Defaults to validating when no worker has run.
+    fn remembered_validate_certificate(&self) -> bool {
+        self.worker
+            .lock()
+            .expect("poisoned")
+            .as_ref()
+            .is_none_or(|w| w.validate_certificate)
     }
 
     /// Lowest stored height (used by the worker to bound reorg walk-back).
@@ -1666,6 +1690,33 @@ mod tests {
         BlockHash, CompactTarget, TxMerkleNode,
     };
     use std::fs;
+
+    #[test]
+    fn a_store_with_no_worker_reports_validating() {
+        // `restart` reads this before any worker has run, so it must not
+        // default to the permissive side.
+        let store = HeaderStore::new_in_memory(Network::Regtest);
+        assert!(store.remembered_validate_certificate());
+    }
+
+    #[test]
+    fn restart_reuses_the_certificate_policy_start_was_given() {
+        // A reconnect that quietly became strict would drop a working
+        // connection to a self-signed server at an arbitrary later moment.
+        let store = HeaderStore::new_in_memory(Network::Regtest);
+        *store.worker.lock().expect("poisoned") = Some(WorkerHandle {
+            min_height: Some(7),
+            validate_certificate: false,
+        });
+        assert!(!store.remembered_validate_certificate());
+        assert_eq!(store.remembered_min_height(), Some(7));
+
+        *store.worker.lock().expect("poisoned") = Some(WorkerHandle {
+            min_height: None,
+            validate_certificate: true,
+        });
+        assert!(store.remembered_validate_certificate());
+    }
     use temp_dir::TempDir;
 
     fn raw_header(h: &Header) -> [u8; Header::SIZE] {
