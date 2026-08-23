@@ -20,6 +20,12 @@ cargo fmt -- --check
 echo "=== clippy ==="
 cargo clippy --all-targets -- -D warnings
 
+echo "=== qr-protocol all features ==="
+# bwk-qr-protocol's ffi module and its vtable/layout tests sit behind a feature no
+# other crate enables, so the workspace-wide steps never compile them.
+cargo clippy -p bwk-qr-protocol --all-targets --all-features -- -D warnings
+cargo test -p bwk-qr-protocol --all-features
+
 echo "=== tests ==="
 # Run integration tests single-threaded: each spins up its own bitcoind/blindbit
 # (and electrsd) regtest daemon, and running dozens concurrently starves CPU/IO,

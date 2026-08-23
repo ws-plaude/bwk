@@ -26,6 +26,10 @@ jobs:
         run: cargo fmt -- --check
       - name: clippy
         run: cargo clippy --all-targets -- -D warnings
+      - name: clippy qr-protocol all features
+        # The ffi module sits behind a feature no other crate enables, so the
+        # workspace-wide step above never compiles it.
+        run: cargo clippy -p bwk-qr-protocol --all-targets --all-features -- -D warnings
 
   tests:
     needs: linter
@@ -53,6 +57,8 @@ jobs:
         # (bitcoind/blindbit/electrsd); running them concurrently starves the
         # runner and causes flaky sync timeouts / wallet-state races.
         run: cargo test --features test --verbose --color always -- --nocapture --test-threads=1
+      - name: qr-protocol all features
+        run: cargo test -p bwk-qr-protocol --all-features
 
   build:
     needs: tests
