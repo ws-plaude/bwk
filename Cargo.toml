@@ -7,6 +7,7 @@ members = [
     "electrum",
     "backoff",
     "keys", "utils", "sign", "descriptor", "tx",
+    "qr-protocol",
     "persist",
     "p2p",
     "hwi", "hwi/cli",
@@ -76,4 +77,5 @@ bwk-descriptor = { path = "descriptor" }
 bwk-persist = { path = "persist" }
 bwk-utils = { path = "utils" }
 bwk-p2p = { path = "p2p" }
+bwk-qr-protocol = { path = "qr-protocol" }
 bwk = { path = "bwk" }
