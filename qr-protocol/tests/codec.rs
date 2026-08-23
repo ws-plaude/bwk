@@ -255,6 +255,8 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
     infos.extend(reader_errors.iter().map(reader::Error::info));
     infos.extend(decode_errors.iter().map(decode::Error::info));
     infos.extend(encode_errors.iter().map(encode::Error::info));
+    #[cfg(feature = "ffi")]
+    infos.extend(ffi_infos());
 
     let mut codes = Vec::new();
     for (code, message) in &infos {
@@ -273,4 +275,23 @@ fn every_error_message_is_terminated_and_uniquely_coded() {
         reader::Error::Truncated.info()
     );
     assert_eq!(reader::Error::Truncated.to_string(), "truncated field");
+}
+
+#[cfg(feature = "ffi")]
+fn ffi_infos() -> Vec<(i32, &'static str)> {
+    use bwk_qr_protocol::ffi::Error;
+
+    [
+        Error::NullPointer,
+        Error::StringNul,
+        Error::InvalidUtf8,
+        Error::InvalidBool,
+        Error::UnknownTag,
+        Error::UnterminatedFixedString,
+        Error::UnexpectedResponse,
+        Error::ListTooLong,
+    ]
+    .iter()
+    .map(Error::info)
+    .collect()
 }

@@ -2,7 +2,7 @@
 //!
 //! The crate is `no_std` plus `alloc` and pulls no dependency of its own, so a
 //! bare-metal signer can vendor it as-is. Enable `bitcoin` for conversions to and
-//! from the `bitcoin` types.
+//! from the `bitcoin` types, and `ffi` for the C binding.
 
 // Every field of this protocol was introduced in version 1. A field added in a later
 // version is appended at the end of its message body and carries a `// since vN`
@@ -33,6 +33,8 @@ macro_rules! error_display {
 
 pub mod decode;
 pub mod encode;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 pub mod reader;
 pub mod request;
 pub mod response;
